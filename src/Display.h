@@ -6,18 +6,15 @@
 class Display {
 public:
     static void iniciar();
+    static void renderizar();
     
-    // O repertório completo de emoções do NodeBot
+    // Funções de desenho
     static void desenharOlhosAbertos();
     static void desenharOlhosFechados();
     static void piscar();
-    static void desenharOlhosFelizes();
-    static void desenharOlhosBravos();
-    static void desenharOlhosTristes();
-    static void desenharDormindo();
 
 private:
     static TFT_eSPI tft;
-    // Variável para a cor dos olhos (facilita se quisermos mudar a cor depois)
-    static uint32_t corOlho; 
+    static TFT_eSprite canvas; // O famoso 'canvas' que deu erro de undefined
+    static uint32_t corOlho;   // A 'corOlho' que deu erro de undefined
 };
