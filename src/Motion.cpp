@@ -1,30 +1,54 @@
 #include "Motion.h"
 
-// Instancia o controlador
 SMS_STS Motion::st;
 
-void Motion::iniciar() {
-    // Inicializa a Serial1 com a velocidade padrão dos Feetech (1.000.000 bps)
-    // Sim, esses servos são MUITO rápidos na comunicação!
+bool Motion::iniciar() {
     Serial1.begin(1000000, SERIAL_8N1, SERVO_RX, SERVO_TX);
     st.pSerial = &Serial1;
     
-    delay(500); // Aguarda a eletrônica estabilizar
+    delay(500); // Estabilização do barramento
+
+    // Fail-Fast: Se o hardware não responder, o boot falha
+    if (!testarComunicacao()) {
+        Serial.println("[ERRO] Motion: Servos não respondem no ID 1 ou 2!");
+        return false;
+    }
+
+    st.EnableTorque(1, 1);
+    st.EnableTorque(2, 1);
     centralizar();
+    
+    Serial.println("[OK] Motion: Barramento 1Mbps validado.");
+    return true;
 }
 
-void Motion::olharPara(int pan, int tilt) {
-    // IDs padrão: 1 para a base (Pan), 2 para o pescoço (Tilt)
-    // Velocidade: 1000, Aceleração: 50
-    st.WritePosEx(1, pan, 1000, 50); 
-    st.WritePosEx(2, tilt, 1000, 50);
+bool Motion::testarComunicacao() {
+    // Tenta ler a voltagem do servo ID 1. Se retornar -1, falhou.
+    int v = st.ReadVoltage(1);
+    return (v != -1);
 }
 
-void Motion::centralizar() {
-    olharPara(2048, 2048); // 2048 é geralmente o centro (0-4095)
+void Motion::atualizar(SystemState estadoAtual) {
+    // Se o sistema entrar em paragem crítica, cortamos o torque
+    if (estadoAtual == STATE_CRITICAL_STOP) {
+        relaxar();
+    }
+}
+
+void Motion::olharPara(int pan, int tilt, int vel, int acc) {
+    int sPan = constrain(pan, PAN_MIN, PAN_MAX);
+    int sTilt = constrain(tilt, TILT_MIN, TILT_MAX);
+
+    // Envio robusto individual
+    st.WritePosEx(1, sPan, vel, acc);
+    st.WritePosEx(2, sTilt, vel, acc);
 }
 
 void Motion::relaxar() {
-    st.unLockEprom(1); // Libera o motor 1
-    st.unLockEprom(2); // Libera o motor 2
+    st.EnableTorque(1, 0);
+    st.EnableTorque(2, 0);
+}
+
+void Motion::centralizar() {
+    olharPara(2048, 2048, 400, 20);
 }

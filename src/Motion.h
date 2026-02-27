@@ -1,15 +1,23 @@
 #pragma once
 #include <Arduino.h>
-#include <SCServo.h> // A biblioteca que vamos baixar para a pasta lib
+#include <SCServo.h>
 #include "../include/Config.h"
 
 class Motion {
 public:
-    static void iniciar();
-    static void olharPara(int pan, int tilt); // Movimento coordenado
+    static bool iniciar(); // Fail-Fast: Retorna false se os servos não responderem
+    static void atualizar(SystemState estadoAtual); 
+    static void olharPara(int pan, int tilt, int vel = 500, int acc = 50);
+    static void relaxar();
     static void centralizar();
-    static void relaxar(); // Desliga o torque para economizar energia/calor
+
+    // Limites de Segurança (Safe Zones)
+    static const int PAN_MIN = 1024;
+    static const int PAN_MAX = 3072;
+    static const int TILT_MIN = 1500;
+    static const int TILT_MAX = 2500;
 
 private:
-    static SMS_STS st; // Objeto de controle da Feetech (SCS Series)
+    static SMS_STS st;
+    static bool testarComunicacao();
 };
