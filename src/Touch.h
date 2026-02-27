@@ -7,8 +7,6 @@ public:
     static bool lerTato(); 
 
 private:
-    static const int PINO_FITA_COBRE = 4; 
-    static const int LIMIAR_CAPACITIVO = 30000;
     static int consecutiveHits;
-    static const int TOUCH_THRESHOLD_SAMPLES = 5; 
+    static const int TOUCH_THRESHOLD_SAMPLES = 5; // Mantido aqui pois é lógica interna do módulo
 };

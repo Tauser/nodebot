@@ -1,17 +1,19 @@
 #include "AudioSys.h"
-#include "SDSys.h" // Importamos o SD para podermos gravar logs de erro de áudio
+#include "SDSys.h"
+#include "Config.h"
 
 AudioGeneratorMP3 *AudioSys::mp3 = nullptr;
-AudioFileSourceSD *AudioSys::file = nullptr;
+AudioFileSourceFS *AudioSys::file = nullptr; // <--- MUDANÇA
 AudioOutputI2S *AudioSys::out = nullptr;
 
 bool AudioSys::iniciar() {
-    Serial.println("[SYSTEM] Iniciando AudioSys (SD/MP3)...");
+    Serial.println("[SYSTEM] Iniciando AudioSys (SD_MMC/MP3)...");
 
     out = new AudioOutputI2S(0, 1);
     mp3 = new AudioGeneratorMP3();
 
-    out->SetPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);
+    // Usando as variáveis do Config.h
+    out->SetPinout(I2S_BCLK_PIN, I2S_LRC_PIN, I2S_DOUT_PIN);
     out->SetGain(0.4); 
 
     Serial.println("[OK] AudioSys: Motor de Audio I2S online.");
@@ -21,13 +23,14 @@ bool AudioSys::iniciar() {
 void AudioSys::tocar(const char* caminhoArquivo) {
     parar(); 
 
-    file = new AudioFileSourceSD(caminhoArquivo);
+    // <--- MUDANÇA: Passamos o sistema SD_MMC como parâmetro para o áudio!
+    file = new AudioFileSourceFS(SD_MMC, caminhoArquivo);
     
     if (file->isOpen()) {
         mp3->begin(file, out);
         Serial.printf("[AUDIO] A reproduzir do SD: %s\n", caminhoArquivo);
     } else {
-        Serial.printf("[ERRO] AudioSys: Ficheiro nao encontrado no SD: %s\n", caminhoArquivo);
+        Serial.printf("[ERRO] AudioSys: Ficheiro nao encontrado no SD_MMC: %s\n", caminhoArquivo);
         SDSys::gravarLog("ERRO DE AUDIO: Ficheiro em falta."); 
         delete file;
         file = nullptr;

@@ -1,11 +1,12 @@
 #include "Motion.h"
+#include "Config.h"
 
 SMS_STS Motion::st;
 int Motion::alvoX = 2048; // Centro padrão dos motores Feetech
 int Motion::alvoY = 2048;
 
 bool Motion::iniciar() {
-    Serial1.begin(1000000, SERIAL_8N1, SERVO_RX, SERVO_TX);
+    Serial1.begin(1000000, SERIAL_8N1, SERVO_RX_PIN, SERVO_TX_PIN);
     st.pSerial = &Serial1;
     
     delay(500); // Estabilização do barramento

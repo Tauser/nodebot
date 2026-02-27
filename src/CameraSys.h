@@ -5,10 +5,5 @@
 class CameraSys {
 public:
     static bool iniciar();
-    
-    static camera_fb_t* capturarFrame(); 
-    static void liberarFrame(camera_fb_t* fb);
-
-private:
-    static camera_config_t configCamera;
+    static void tirarFotoSalvarSD(const char* caminhoFicheiro);
 };

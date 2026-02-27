@@ -45,12 +45,11 @@ void setup() {
     hwOk &= Power::iniciar();
     hwOk &= Display::iniciar();
     hwOk &= Motion::iniciar();
-    hwOk &= AudioSys::iniciar();
+    // hwOk &= AudioSys::iniciar();
     hwOk &= TouchSys::iniciar();
     hwOk &= ImuSys::iniciar();
-    hwOk &= CameraSys::iniciar();
-    hwOk &= SDSys::iniciar();
-    hwOk &= AudioSys::iniciar();
+    // hwOk &= CameraSys::iniciar();
+    // hwOk &= SDSys::iniciar();
     
     WifiSys::iniciar();
 
@@ -106,23 +105,22 @@ void TaskTelemetry(void *pvParameters) {
         Power::monitorar();
         ImuSys::atualizar(); 
 
-        if (currentState != STATE_CRITICAL_STOP) {
+        if (currentState != STATE_CRITICAL_STOP && currentState != STATE_SLEEPING) {
             // REFLEXO 1: Queda ou Tombamento
             if (ImuSys::isCaido()) {
-                if (currentState != STATE_SLEEPING) {
-                    Serial.println("[REFLEXO] Queda detetada!");
-                    Motion::relaxar(); // Protege os servos
-                    Display::definirEmocao(EMOCAO_CANSADO);
-                }
+                Serial.println("[REFLEXO] Queda detetada!");
+                Motion::relaxar(); // Protege os servos
+                Display::definirEmocao(EMOCAO_CANSADO);
             } 
             // REFLEXO 2: Carinho (Touch Capacitivo)
             else if (TouchSys::lerTato()) {
-                Display::definirEmocao(EMOCAO_FELIZ);
+                Serial.println("[REFLEXO] Carinho detetado pela fita de cobre!");
+                Actions::reagirACarinho(); // <-- Ação completa (Olhos + Som + Motores)
             }
             // REFLEXO 3: Abanão (Susto)
             else if (ImuSys::isAgitado()) {
-                Actions::olharCurioso(); // Reage ao movimento
-                Display::definirEmocao(EMOCAO_ZANGADO);
+                Serial.println("[REFLEXO] Abanao detetado!");
+                Actions::reagirASusto(); // <-- Ação completa (Olhos + Som + Motores)
             }
         }
 
@@ -140,6 +138,7 @@ void TaskTelemetry(void *pvParameters) {
 // ---------------------------------------------------------
 void TaskBrain(void *pvParameters) {
     for (;;) {    
+        // A TaskBrain fica dedicada exclusivamente ao Wi-Fi e Servidor Web
         WifiSys::atualizar();
         vTaskDelay(pdMS_TO_TICKS(100)); 
     }

@@ -1,48 +1,36 @@
 #include "Power.h"
+#include "Config.h"
+#include "SDSys.h"
 
-int Power::leituras[NUM_LEITURAS];
-int Power::indice = 0;
-long Power::total = 0;
-
-const float Power::TENSAO_MAXIMA = 4.2; // Ajuste para 1S (Ex: 4.2V)
-const float Power::TENSAO_MINIMA = 3.2; // Tensão de corte seguro
+// Voltagem crítica para proteger baterias de Lítio (LiPo/Li-ion)
+const float Power::VOLTAGEM_MINIMA = 3.3f;
 
 bool Power::iniciar() {
     pinMode(ADC_PIN, INPUT);
-    analogReadResolution(12);
+    analogReadResolution(12); // Resolução máxima do ESP32 (0 a 4095)
     
-    for (int i = 0; i < NUM_LEITURAS; i++) {
-        leituras[i] = 0;
-    }
-    
-    // Testa se o ADC consegue ler algo (Ex: se pino for inválido)
-    int teste = analogRead(ADC_PIN);
-    if (teste == 0 && TENSAO_MAXIMA > 0) {
-        // Retorna true mesmo assim, mas em sistemas hiper-críticos, 
-        // 0V na inicialização poderia ser considerado falha física (bateria desconectada).
-    }
+    Serial.println("[SYSTEM] Modulo Power online. Protecao de Bateria ativa.");
     return true;
 }
 
-int Power::lerPorcentagem() {
-    total = total - leituras[indice];
-    leituras[indice] = analogRead(ADC_PIN);
-    total = total + leituras[indice];
-    indice = (indice + 1) % NUM_LEITURAS;
-
-    float mediaADC = (float)total / NUM_LEITURAS;
-    float tensao = mediaADC * (TENSAO_MAXIMA / 4095.0); 
+float Power::lerVoltagem() {
+    int leituraRaw = analogRead(ADC_PIN);
     
-    int porcentagem = map(tensao * 100, TENSAO_MINIMA * 100, TENSAO_MAXIMA * 100, 0, 100);
-    return constrain(porcentagem, 0, 100);
+    // Fórmula genérica de conversão para um divisor de tensão 50% (ajustaremos na prática depois se precisar)
+    float voltagemReal = (leituraRaw / 4095.0) * 3.3 * 2.0; 
+    return voltagemReal;
 }
 
 void Power::monitorar() {
-    int nivel = lerPorcentagem();
+    float voltagem = lerVoltagem();
     
-    // Se a bateria cair abaixo de 5%, disparamos o Evento Global
-    if (nivel <= 5) {
-        // Dispara o alarme no barramento do FreeRTOS
+    // Ignoramos voltagens abaixo de 1.0V (significa que o robô está ligado por USB e sem bateria inserida)
+    if (voltagem < VOLTAGEM_MINIMA && voltagem > 1.0f) { 
+        Serial.printf("[AVISO FATAL] Bateria a morrer! (%.2fV)\n", voltagem);
+        
+        SDSys::gravarLog("BATERIA CRITICA: A entrar em coma para proteger o sistema.");
+        
+        // Grita para o Cérebro (FreeRTOS) cortar as pernas ao robô imediatamente
         xEventGroupSetBits(systemEvents, EVT_BATTERY_LOW);
     }
 }

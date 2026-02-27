@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NodeBot OS - Controlo Remoto</title>
+    <style>
+      body {
+        font-family: "Segoe UI", sans-serif;
+        background: #121212;
+        color: #00ff00;
+        margin: 0;
+        padding: 20px;
+        text-align: center;
+      }
+      .header {
+        margin-bottom: 30px;
+        border-bottom: 1px solid #333;
+        padding-bottom: 10px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 15px;
+        max-width: 600px;
+        margin: 0 auto;
+      }
+      button {
+        background: #1e1e1e;
+        color: #00ff00;
+        border: 2px solid #00ff00;
+        padding: 15px;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: 0.2s;
+        text-transform: uppercase;
+      }
+      button:active {
+        background: #00ff00;
+        color: #000;
+        transform: scale(0.95);
+      }
+      .status {
+        margin-top: 20px;
+        font-size: 14px;
+        color: #aaa;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>NodeBot OS</h1>
+      <p>Painel de Controlo Remoto</p>
+    </div>
+    <div class="grid">
+      <button onclick="enviarComando('sim')">Dizer Sim</button>
+      <button onclick="enviarComando('nao')">Dizer Não</button>
+      <button onclick="enviarComando('curioso')">Curioso</button>
+      <button onclick="enviarComando('susto')">Assustar</button>
+      <button onclick="enviarComando('carinho')">Carinho</button>
+    </div>
+    <div class="status" id="statusMsg">Pronto para enviar comandos.</div>
+
+    <script>
+      function enviarComando(cmd) {
+        const statusEl = document.getElementById("statusMsg");
+        statusEl.innerText = "A enviar comando: " + cmd + "...";
+        statusEl.style.color = "#00ff00";
+
+        fetch("/api/acao", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ comando: cmd }),
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.status === "sucesso") {
+              statusEl.innerText =
+                'Comando "' + cmd + '" executado com sucesso!';
+            } else {
+              statusEl.innerText = "Erro ao executar comando.";
+              statusEl.style.color = "#ff0000";
+            }
+          })
+          .catch((error) => {
+            statusEl.innerText = "Erro de comunicação com o NodeBot.";
+            statusEl.style.color = "#ff0000";
+          });
+      }
+    </script>
+  </body>
+</html>

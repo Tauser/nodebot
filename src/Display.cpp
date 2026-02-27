@@ -1,4 +1,5 @@
 #include "Display.h"
+#include <qrcode.h>
 
 TFT_eSPI Display::tft = TFT_eSPI();
 Emocao Display::emocaoAtual = EMOCAO_NEUTRO;
@@ -15,10 +16,15 @@ int Display::intervaloSaccade = 1000;
 int Display::offsetOlharX = 0;
 int Display::offsetOlharY = 0;
 
+// QR Code
+bool Display::exibindoQR = false;
+String Display::textoQR = "";
+
 bool Display::iniciar() {
     tft.init();
     tft.setRotation(1); 
     tft.fillScreen(TFT_BLACK);
+    Serial.println("[OK] Display: Motor Procedural com Saccades e QR online.");
     return true;
 }
 
@@ -27,23 +33,33 @@ void Display::definirEmocao(Emocao novaEmocao) {
 }
 
 void Display::atualizar(SystemState state) {
-    if (state == STATE_CRITICAL_STOP || state == STATE_SLEEPING) return;
+    // 1. Se estiver a mostrar QR Code, congela os olhos
+    if (exibindoQR) return;
+
+    if (state == STATE_CRITICAL_STOP) {
+        tft.fillScreen(TFT_RED);
+        tft.setTextColor(TFT_WHITE);
+        tft.drawString("ERRO CRITICO", 80, 110, 4);
+        return;
+    }
+    if (state == STATE_SLEEPING) {
+        tft.fillScreen(TFT_BLACK);
+        return;
+    }
 
     bool precisaRedesenhar = false;
     unsigned long tempoAtual = millis();
 
-    // 1. Lógica de Saccades (Os olhos procuram alvos aleatórios)
+    // 2. Lógica de Saccades
     if (!isPiscando && (tempoAtual - ultimoTempoSaccade > intervaloSaccade)) {
         ultimoTempoSaccade = tempoAtual;
-        intervaloSaccade = random(800, 2500); // Salta o olhar entre 0.8s e 2.5s
-        
-        // Deslocamento máximo de 15 pixeis para não parecer estrábico
+        intervaloSaccade = random(800, 2500); 
         offsetOlharX = random(-15, 16); 
         offsetOlharY = random(-10, 11);
         precisaRedesenhar = true;
     }
 
-    // 2. Lógica de Piscar
+    // 3. Lógica de Piscar
     if (!isPiscando && (tempoAtual - ultimoTempoPiscar > intervaloPiscar)) {
         isPiscando = true;
         ultimoTempoPiscar = tempoAtual;
@@ -56,11 +72,13 @@ void Display::atualizar(SystemState state) {
         precisaRedesenhar = true;
     }
 
+    // 4. Lógica de Mudança de Emoção
     if (emocaoAtual != emocaoAnterior) {
         precisaRedesenhar = true;
         emocaoAnterior = emocaoAtual;
     }
 
+    // 5. Renderização
     if (precisaRedesenhar) {
         tft.fillScreen(TFT_BLACK);
         desenharRosto();
@@ -68,7 +86,6 @@ void Display::atualizar(SystemState state) {
 }
 
 void Display::desenharRosto() {
-    // Adicionamos o Offset (Saccade) à posição central nativa
     int cxEsq = 90 + offsetOlharX;
     int cxDir = 230 + offsetOlharX;
     int cy = 120 + offsetOlharY;
@@ -80,7 +97,6 @@ void Display::desenharRosto() {
         return; 
     }
     
-    // Desenho procedural rápido com as novas coordenadas vivas
     switch (emocaoAtual) {
         case EMOCAO_NEUTRO:
             tft.fillCircle(cxEsq, cy, raio, TFT_WHITE);
@@ -107,5 +123,39 @@ void Display::desenharRosto() {
             tft.fillRect(cxEsq - 50, cy - 50, 100, 50, TFT_BLACK); 
             tft.fillRect(cxDir - 50, cy - 50, 100, 50, TFT_BLACK);
             break;
+    }
+}
+
+// ==========================================
+// MÉTODOS DO QR CODE
+// ==========================================
+void Display::ativarQR(String texto) {
+    textoQR = texto;
+    exibindoQR = true;
+    emocaoAnterior = EMOCAO_CANSADO; 
+    tft.fillScreen(TFT_WHITE);       
+    desenharQR();
+}
+
+void Display::desativarQR() {
+    exibindoQR = false;
+    tft.fillScreen(TFT_BLACK);
+}
+
+void Display::desenharQR() {
+    QRCode qrcode;
+    uint8_t qrcodeData[qrcode_getBufferSize(3)];
+    qrcode_initText(&qrcode, qrcodeData, 3, 0, textoQR.c_str());
+
+    int scale = 5; 
+    int offsetX = (320 - (qrcode.size * scale)) / 2; 
+    int offsetY = (240 - (qrcode.size * scale)) / 2;
+
+    for (uint8_t y = 0; y < qrcode.size; y++) {
+        for (uint8_t x = 0; x < qrcode.size; x++) {
+            if (qrcode_getModule(&qrcode, x, y)) {
+                tft.fillRect(offsetX + (x * scale), offsetY + (y * scale), scale, scale, TFT_BLACK);
+            }
+        }
     }
 }

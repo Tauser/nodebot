@@ -8,6 +8,8 @@ public:
     static bool iniciar();
     static void atualizar(SystemState state);
     static void definirEmocao(Emocao novaEmocao);
+    static void ativarQR(String texto);
+    static void desativarQR();
 
 private:
     static TFT_eSPI tft;
@@ -26,4 +28,8 @@ private:
     static int offsetOlharY;
 
     static void desenharRosto();
+
+    static bool exibindoQR;
+    static String textoQR;
+    static void desenharQR();
 };

@@ -1,17 +1,19 @@
-#include "Touch.h"
+#include "Touch.h" // (Altere para "Touch.h" se for esse o nome do seu ficheiro)
+#include "Config.h"   // <--- Importa o Mapa Central
 
 int TouchSys::consecutiveHits = 0;
 
 bool TouchSys::iniciar() {
-    int leituraInicial = touchRead(PINO_FITA_COBRE);
+    int leituraInicial = touchRead(TOUCH_PIN);
     Serial.printf("[OK] TouchSys: Base capacitiva em %d\n", leituraInicial);
     return true;
 }
 
 bool TouchSys::lerTato() {
-    int valorAtual = touchRead(PINO_FITA_COBRE);
+
+    int valorAtual = touchRead(TOUCH_PIN);
     
-    if (valorAtual > LIMIAR_CAPACITIVO) { 
+    if (valorAtual > TOUCH_CAPACITIVE_THRESHOLD) { 
         consecutiveHits++;
     } else {
         consecutiveHits = 0; 

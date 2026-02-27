@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NodeBot Setup</title>
+    <style>
+      body {
+        font-family: "Segoe UI", sans-serif;
+        background: #121212;
+        color: #ffffff;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+      }
+      .container {
+        background: #1e1e1e;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 4px 15px rgba(0, 255, 0, 0.2);
+        width: 100%;
+        max-width: 400px;
+        text-align: center;
+      }
+      h2 {
+        color: #00ff00;
+        margin-bottom: 20px;
+      }
+      input {
+        width: calc(100% - 22px);
+        padding: 10px;
+        margin: 10px 0;
+        border: 1px solid #333;
+        border-radius: 5px;
+        background: #2a2a2a;
+        color: #fff;
+      }
+      input:focus {
+        outline: none;
+        border-color: #00ff00;
+      }
+      button {
+        background: #00ff00;
+        color: #000;
+        padding: 12px;
+        width: 100%;
+        border: none;
+        border-radius: 5px;
+        font-weight: bold;
+        font-size: 16px;
+        cursor: pointer;
+        transition: 0.3s;
+        margin-top: 15px;
+      }
+      button:hover {
+        background: #00cc00;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2>Configurar NodeBot</h2>
+      <form action="/salvar" method="POST">
+        <input
+          type="text"
+          name="ssid"
+          placeholder="Nome da Rede Wi-Fi (SSID)"
+          required
+        />
+        <input
+          type="password"
+          name="pass"
+          placeholder="Senha do Wi-Fi"
+          required
+        />
+        <button type="submit">Salvar e Reiniciar</button>
+      </form>
+    </div>
+  </body>
+</html>

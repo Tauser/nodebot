@@ -1,6 +1,7 @@
 #pragma once
 #include <Arduino.h>
-#include "AudioFileSourceSD.h"   
+#include <SD_MMC.h>
+#include "AudioFileSourceFS.h"
 #include "AudioGeneratorMP3.h"
 #include "AudioOutputI2S.h"
 
@@ -13,10 +14,6 @@ public:
 
 private:
     static AudioGeneratorMP3 *mp3;
-    static AudioFileSourceSD *file; 
+    static AudioFileSourceFS *file; 
     static AudioOutputI2S *out;
-
-    static const int I2S_BCLK = 5; 
-    static const int I2S_LRC  = 6; 
-    static const int I2S_DOUT = 7; 
 };

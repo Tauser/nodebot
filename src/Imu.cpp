@@ -2,13 +2,14 @@
 #include <Wire.h>
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
+#include "Config.h"
 
 static Adafruit_MPU6050 mpu;
 static float aceleracaoX = 0, aceleracaoY = 0, aceleracaoZ = 0;
 static float offX = 0, offY = 0, offZ = 0;
 
 bool ImuSys::iniciar() {
-    Wire.begin(8, 9); // Ajuste para os pinos I2C da sua placa
+    Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
     if (!mpu.begin()) {
         Serial.println("[ERRO] ImuSys: MPU6050 não encontrado.");
         return false;
@@ -17,7 +18,6 @@ bool ImuSys::iniciar() {
     mpu.setAccelerometerRange(MPU6050_RANGE_4_G);
     mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
 
-    // Calibração de Elite: Define o que é o "centro" físico do seu robô
     Serial.println("[IMU] Calibrando...");
     float sumX = 0, sumY = 0, sumZ = 0;
     for(int i = 0; i < 50; i++) {
