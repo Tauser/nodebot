@@ -14,12 +14,12 @@ private:
     static Emocao emocaoAtual;
     static Emocao emocaoAnterior; 
     
-    // Relógio Biológico (Blink)
+    // Blink
     static unsigned long ultimoTempoPiscar;
     static int intervaloPiscar;
     static bool isPiscando;
 
-    // Relógio Biológico (Saccades) -> Faltava declarar isto!
+    // Saccades
     static unsigned long ultimoTempoSaccade;
     static int intervaloSaccade;
     static int offsetOlharX;

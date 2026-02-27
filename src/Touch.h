@@ -7,7 +7,7 @@ public:
     static bool lerTato(); 
 
 private:
-    static const int PINO_FITA_COBRE = 4; // Ajuste para o seu pino
+    static const int PINO_FITA_COBRE = 4; 
     static const int LIMIAR_CAPACITIVO = 30000;
     static int consecutiveHits;
     static const int TOUCH_THRESHOLD_SAMPLES = 5; 

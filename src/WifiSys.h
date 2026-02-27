@@ -8,7 +8,7 @@ class WifiSys {
 public:
     static void iniciar();
     static void atualizar();
-    static void apagarCredenciais(); // Útil para o futuro (ex: pressionar um botão por 5s)
+    static void apagarCredenciais(); 
 
 private:
     static WebServer server;
@@ -20,11 +20,11 @@ private:
     static void iniciarModoAP();
     static void iniciarModoSTA(String ssid, String pass);
 
-    // Rotas do Modo AP (Painel de Configuração)
+    // Rotas do Modo AP
     static void paginaConfiguracao();
     static void salvarConfiguracao();
 
-    // Rotas do Modo STA (Operação Normal / API)
+    // Rotas do Modo STA
     static void paginaRoot();
     static void receberComando();
 };
