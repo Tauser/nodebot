@@ -20,12 +20,24 @@ enum SystemState {
     STATE_BOOTING,       // Iniciando e testando hardware
     STATE_IDLE,          // Saudável, respirando, esperando
     STATE_INTERACTING,   // Executando comando (voz, IA, etc)
+    STATE_SLEEPING,      // <-- ADICIONADO: Poupando bateria / descansando
     STATE_CRITICAL_STOP, // Falha de bateria ou hardware
     STATE_RECOVERY       // Tentando se recuperar de um erro
 };
 
 // =========================================================
-// 3. BARRAMENTO DE EVENTOS (Pub/Sub do FreeRTOS)
+// 3. EMOÇÕES DO ECRÃ (Visão)
+// =========================================================
+// Define a expressão facial atual do robô
+enum Emocao {
+    EMOCAO_NEUTRO,
+    EMOCAO_FELIZ,
+    EMOCAO_ZANGADO,
+    EMOCAO_CANSADO
+};
+
+// =========================================================
+// 4. BARRAMENTO DE EVENTOS (Pub/Sub do FreeRTOS)
 // =========================================================
 // Cada evento é um "bit" que pode ser ativado (1) ou lido.
 #define EVT_HW_DISPLAY_OK   (1 << 0) // Bit 0

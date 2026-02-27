@@ -1,17 +1,21 @@
 #include "Touch.h"
 
-bool TouchSys::isTocado = false;
+int TouchSys::consecutiveHits = 0;
 
 bool TouchSys::iniciar() {
-    // O tato capacitivo não precisa de "begin", apenas testamos se o pino responde
     int leituraInicial = touchRead(PINO_FITA_COBRE);
-    Serial.printf("[OK] TouchSys: Fita de cobre calibrada. Leitura base: %d\n", leituraInicial);
+    Serial.printf("[OK] TouchSys: Base capacitiva em %d\n", leituraInicial);
     return true;
 }
 
 bool TouchSys::lerTato() {
-    // O ESP32-S3 retorna valores maiores quando tocado
     int valorAtual = touchRead(PINO_FITA_COBRE);
-    isTocado = (valorAtual > LIMIAR_TATO);
-    return isTocado;
+    
+    if (valorAtual > LIMIAR_CAPACITIVO) { 
+        consecutiveHits++;
+    } else {
+        consecutiveHits = 0; 
+    }
+
+    return (consecutiveHits >= TOUCH_THRESHOLD_SAMPLES);
 }

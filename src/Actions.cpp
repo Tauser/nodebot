@@ -1,6 +1,7 @@
 #include "Actions.h"
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
+#include "Motion.h"
+#include "Display.h"
+#include "AudioSys.h"
 
 void Actions::dizerSim() {
     for(int i=0; i<2; i++) {
@@ -23,7 +24,21 @@ void Actions::dizerNao() {
 }
 
 void Actions::olharCurioso() {
-    Motion::olharPara(2300, 1800, 400, 20); // Inclina devagar
+    Motion::olharPara(2300, 1800, 400, 20); // Movimento lento e inclinado
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    centralizarSuave();
+}
+
+void Actions::reagirACarinho() {
+    Display::definirEmocao(EMOCAO_FELIZ);
+    Motion::olharPara(2048, 1800, 500, 50); // Levanta um pouco a cabeça
+    vTaskDelay(pdMS_TO_TICKS(800));
+    centralizarSuave();
+}
+
+void Actions::reagirASusto() {
+    Display::definirEmocao(EMOCAO_ZANGADO);
+    Motion::olharPara(2048, 2600, 2000, 250); // Recuo rápido para baixo
     vTaskDelay(pdMS_TO_TICKS(1000));
     centralizarSuave();
 }

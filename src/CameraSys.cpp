@@ -3,8 +3,6 @@
 camera_config_t CameraSys::configCamera;
 
 bool CameraSys::iniciar() {
-    // Pinos padrão para módulos de câmara no ESP32-S3
-    // (Ajuste no Config.h de acordo com a sua placa específica, ex: Freenove, ESP32-S3-EYE, etc.)
     configCamera.pin_pwdn = -1;
     configCamera.pin_reset = -1;
     configCamera.pin_xclk = 15;
@@ -22,45 +20,39 @@ bool CameraSys::iniciar() {
     configCamera.pin_href = 7;
     configCamera.pin_pclk = 13;
 
-    // Configuração de Memória e Qualidade
-    configCamera.ledc_channel = LEDC_CHANNEL_0;
-    configCamera.ledc_timer = LEDC_TIMER_0;
     configCamera.xclk_freq_hz = 20000000;
-    configCamera.pixel_format = PIXFORMAT_JPEG; // JPEG direto do hardware!
+    configCamera.pixel_format = PIXFORMAT_JPEG; 
     
-    // Se temos a PSRAM OPI que você comprou, usamos alta performance
+    // GESTÃO DE MEMÓRIA DE ELITE
     if (psramFound()) {
-        configCamera.frame_size = FRAMESIZE_QVGA; // 320x240 (Ideal para CV/Streaming)
-        configCamera.jpeg_quality = 12;           // Qualidade alta (0-63, menor é melhor)
-        configCamera.fb_count = 2;                // Usa 2 buffers para não perder frames
-        configCamera.grab_mode = CAMERA_GRAB_LATEST; // Pega sempre a imagem mais recente
+        configCamera.frame_size = FRAMESIZE_QVGA; // 320x240
+        configCamera.jpeg_quality = 10;           
+        configCamera.fb_count = 2;               
+        configCamera.fb_location = CAMERA_FB_IN_PSRAM; // OBRIGATÓRIO: Isola a RAM interna
+        configCamera.grab_mode = CAMERA_GRAB_LATEST;
     } else {
-        Serial.println("[FATAL] CameraSys: PSRAM não encontrada! A câmara precisa de PSRAM.");
+        Serial.println("[CRITICAL] CameraSys: PSRAM OPI não detetada!");
         return false;
     }
 
-    // Inicializa o Hardware
     esp_err_t err = esp_camera_init(&configCamera);
-    if (err != ESP_OK) {
-        Serial.printf("[ERRO] CameraSys: Falha ao iniciar a câmara (Erro: 0x%x)\n", err);
-        return false;
-    }
+    if (err != ESP_OK) return false;
 
-    // Ajustes de imagem orgânica (evitar superexposição)
-    sensor_t * sensor = esp_camera_sensor_get();
-    sensor->set_vflip(sensor, 1);   // Inverte se a câmara estiver de cabeça para baixo
-    sensor->set_hmirror(sensor, 1); // Espelha a imagem
+    // Tunning do Sensor
+    sensor_t * s = esp_camera_sensor_get();
+    s->set_vflip(s, 1);       // Ajusta orientação
+    s->set_hmirror(s, 1);     // Efeito espelho
+    s->set_whitebal(s, 1);    // Equilíbrio de brancos automático
+    s->set_ae_level(s, 2);    // Nível de exposição para interiores
     
-    Serial.println("[OK] CameraSys: Módulo de Visão online e gravando em PSRAM.");
+    Serial.println("[OK] CameraSys: Visão computacional pronta em PSRAM.");
     return true;
 }
 
 camera_fb_t* CameraSys::capturarFrame() {
-    return esp_camera_fb_get(); // Tira a foto
+    return esp_camera_fb_get();
 }
 
 void CameraSys::liberarFrame(camera_fb_t* fb) {
-    if (fb) {
-        esp_camera_fb_return(fb); // Limpa a memória
-    }
+    if (fb) esp_camera_fb_return(fb);
 }

@@ -1,127 +1,72 @@
 #include "Display.h"
 
 TFT_eSPI Display::tft = TFT_eSPI();
-TFT_eSprite Display::canvas = TFT_eSprite(&tft);
-unsigned long Display::proximoPiscar = 0;
-RobotEmotion Display::emocaoAtual = EMOCAO_NEUTRO;
-bool Display::isPiscando = false;
+Emocao Display::emocaoAtual = EMOCAO_NEUTRO;
+Emocao Display::emocaoAnterior = EMOCAO_CANSADO; // Força a desenhar na primeira vez
 
 bool Display::iniciar() {
     tft.init();
-    tft.setRotation(1);
+    tft.setRotation(1); // Paisagem
     tft.fillScreen(TFT_BLACK);
-    canvas.setColorDepth(16);
-    
-    // Fail-Fast: Se não houver PSRAM, o ecrã não liga
-    if (canvas.createSprite(tft.width(), tft.height()) == NULL) {
-        Serial.println("[FATAL] Display: Falha ao alocar PSRAM!");
-        return false;
-    }
-    
-    proximoPiscar = millis() + 2000;
+    Serial.println("[OK] Display: Inicializado em modo de alta velocidade.");
     return true;
 }
 
-void Display::definirEmocao(RobotEmotion novaEmocao) {
+void Display::definirEmocao(Emocao novaEmocao) {
     emocaoAtual = novaEmocao;
 }
 
-void Display::atualizar(SystemState estadoAtual) {
-    unsigned long agora = millis();
-    canvas.fillSprite(TFT_BLACK); // Limpa o frame
-
-    uint32_t cor = TFT_CYAN;
-
-    // 1. Sobrescrita de Saúde (O Sistema fala mais alto que a Emoção)
-    if (estadoAtual == STATE_CRITICAL_STOP) {
-        // Robô "morreu" (Bateria < 5%) - Ignora emoção, desenha X
-        canvas.drawLine(POS_X_ESQ, POS_Y, POS_X_ESQ + OLHO_LARGURA, POS_Y + OLHO_ALTURA, TFT_RED);
-        canvas.drawLine(POS_X_ESQ + OLHO_LARGURA, POS_Y, POS_X_ESQ, POS_Y + OLHO_ALTURA, TFT_RED);
-        canvas.drawLine(POS_X_DIR, POS_Y, POS_X_DIR + OLHO_LARGURA, POS_Y + OLHO_ALTURA, TFT_RED);
-        canvas.drawLine(POS_X_DIR + OLHO_LARGURA, POS_Y, POS_X_DIR, POS_Y + OLHO_ALTURA, TFT_RED);
-        renderizar();
+void Display::atualizar(SystemState state) {
+    if (state == STATE_CRITICAL_STOP) {
+        tft.fillScreen(TFT_RED);
+        tft.setTextColor(TFT_WHITE);
+        tft.drawString("ERRO CRITICO", 80, 110, 4);
         return;
-    } 
-    else if (estadoAtual == STATE_RECOVERY) {
-        cor = TFT_ORANGE;
-        emocaoAtual = EMOCAO_CANSADO; // Força emoção de cansaço
     }
-
-    // 2. Lógica Autônoma de Piscar (Blink)
-    if (agora > proximoPiscar) {
-        isPiscando = true;
-        if (agora > proximoPiscar + 150) { // O piscar dura 150ms
-            isPiscando = false;
-            proximoPiscar = agora + random(2000, 6000);
-        }
+    
+    // VERIFICAÇÃO DE PERFORMANCE: Só gasta tempo a desenhar se a emoção mudar
+    if (emocaoAtual != emocaoAnterior) {
+        tft.fillScreen(TFT_BLACK); // Limpa o ecrã super rápido
+        desenharRosto();
+        emocaoAnterior = emocaoAtual; // Guarda o estado atual
     }
-
-    // 3. Renderização Procedural (Camada Base)
-    desenharOlhoBase(POS_X_ESQ, POS_Y, cor);
-    desenharOlhoBase(POS_X_DIR, POS_Y, cor);
-
-    // 4. Aplicação das Máscaras de Emoção
-    if (!isPiscando) {
-        aplicarMascara(POS_X_ESQ, POS_Y, emocaoAtual, true);
-        aplicarMascara(POS_X_DIR, POS_Y, emocaoAtual, false);
-    } else {
-        // Máscara de Piscar (Cobre 90% do olho de cima para baixo)
-        canvas.fillRect(POS_X_ESQ - 5, POS_Y - 5, OLHO_LARGURA + 10, OLHO_ALTURA - 10, TFT_BLACK);
-        canvas.fillRect(POS_X_DIR - 5, POS_Y - 5, OLHO_LARGURA + 10, OLHO_ALTURA - 10, TFT_BLACK);
-    }
-
-    renderizar();
 }
 
-void Display::desenharOlhoBase(int x, int y, uint32_t cor) {
-    canvas.fillRoundRect(x, y, OLHO_LARGURA, OLHO_ALTURA, RAIO_CURVATURA, cor);
-}
-
-void Display::aplicarMascara(int x, int y, RobotEmotion emocao, bool olhoEsquerdo) {
-    // Adicionamos uma margem de segurança na máscara para cortar limpo
-    int mX = x - 5; 
-    int mL = OLHO_LARGURA + 10;
-
-    switch (emocao) {
-        case EMOCAO_FELIZ:
-            // Bochechas sobem e cobrem a base do olho (sorriso com os olhos)
-            canvas.fillRect(mX, y + (OLHO_ALTURA / 2) + 10, mL, OLHO_ALTURA / 2, TFT_BLACK);
-            // Curva a máscara para não ficar um corte 100% reto
-            canvas.fillCircle(x + (OLHO_LARGURA/2), y + OLHO_ALTURA, 20, TFT_BLACK); 
-            break;
-
-        case EMOCAO_CANSADO:
-            // Pálpebra superior desce até à metade, de forma reta
-            canvas.fillRect(mX, y - 5, mL, OLHO_ALTURA / 2, TFT_BLACK);
-            break;
-
-        case EMOCAO_ZANGADO:
-            // Corte diagonal. O lado de dentro do olho fica mais baixo (franzir sobrolho)
-            if (olhoEsquerdo) {
-                // Triângulo: Topo-Esq, Topo-Dir(mais baixo), Fundo-Dir(ponto extra fora)
-                canvas.fillTriangle(mX, y-10, mX + mL, y + 40, mX + mL, y-10, TFT_BLACK);
-            } else {
-                // Oposto para o olho direito
-                canvas.fillTriangle(mX, y + 40, mX + mL, y-10, mX, y-10, TFT_BLACK);
-            }
-            break;
-
-        case EMOCAO_TRISTE:
-            // Oposto de zangado. O lado de fora cai (olhar pidão)
-            if (olhoEsquerdo) {
-                canvas.fillTriangle(mX, y + 30, mX + mL, y-10, mX, y-10, TFT_BLACK);
-            } else {
-                canvas.fillTriangle(mX, y-10, mX + mL, y + 30, mX + mL, y-10, TFT_BLACK);
-            }
-            break;
-
+void Display::desenharRosto() {
+    int cxEsq = 90;
+    int cxDir = 230;
+    int cy = 120;
+    int raio = 45;
+    
+    // Desenho de primitivas diretas (O método mais confiável e rápido que existe)
+    switch (emocaoAtual) {
         case EMOCAO_NEUTRO:
-        default:
-            // Nenhuma máscara é aplicada
+            tft.fillCircle(cxEsq, cy, raio, TFT_WHITE);
+            tft.fillCircle(cxDir, cy, raio, TFT_WHITE);
+            break;
+            
+        case EMOCAO_FELIZ:
+            tft.fillCircle(cxEsq, cy, raio, TFT_GREEN);
+            tft.fillCircle(cxDir, cy, raio, TFT_GREEN);
+            // Apaga a metade inferior com um retângulo preto para fazer o "sorriso"
+            tft.fillRect(cxEsq - 50, cy + 10, 100, 50, TFT_BLACK); 
+            tft.fillRect(cxDir - 50, cy + 10, 100, 50, TFT_BLACK);
+            break;
+            
+        case EMOCAO_ZANGADO:
+            tft.fillCircle(cxEsq, cy, raio, TFT_RED);
+            tft.fillCircle(cxDir, cy, raio, TFT_RED);
+            // Corta o topo em diagonal para fazer a sobrancelha zangada
+            tft.fillTriangle(cxEsq - 50, cy - 50, cxEsq + 50, cy - 10, cxEsq - 50, cy - 10, TFT_BLACK);
+            tft.fillTriangle(cxDir - 50, cy - 10, cxDir + 50, cy - 50, cxDir + 50, cy - 10, TFT_BLACK);
+            break;
+            
+        case EMOCAO_CANSADO:
+            tft.fillCircle(cxEsq, cy, raio, TFT_DARKGREY);
+            tft.fillCircle(cxDir, cy, raio, TFT_DARKGREY);
+            // Corta a metade superior
+            tft.fillRect(cxEsq - 50, cy - 50, 100, 50, TFT_BLACK); 
+            tft.fillRect(cxDir - 50, cy - 50, 100, 50, TFT_BLACK);
             break;
     }
-}
-
-void Display::renderizar() {
-    canvas.pushSprite(0, 0);
 }

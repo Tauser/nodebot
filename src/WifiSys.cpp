@@ -1,39 +1,42 @@
 #include "WifiSys.h"
 #include "Actions.h"
-#include "Display.h"
-
-// Configurações de Rede (Ajusta depois no Config.h)
-const char* ssid = "NOME_DA_TUA_REDE";
-const char* password = "SENHA_DA_TUA_REDE";
 
 WebServer WifiSys::server(80);
+bool WifiSys::isConnected = false;
 
-bool WifiSys::iniciar() {
-    Serial.printf("[WIFI] Conectando a %s...\n", ssid);
-    
+// Ajuste com os dados da sua rede
+const char* ssid = "SEU_WIFI";
+const char* password = "SUA_SENHA";
+
+void WifiSys::iniciar() {
+    Serial.println("[WIFI] Iniciando antena em background...");
     WiFi.mode(WIFI_STA);
     WiFi.begin(ssid, password);
+    // REMOVIDO o while() que travava o robô. O boot segue imediatamente!
+}
 
-    // Espera até 10 segundos para conectar
-    int tentativas = 0;
-    while (WiFi.status() != WL_CONNECTED && tentativas < 20) {
-        delay(500);
-        Serial.print(".");
-        tentativas++;
-    }
-
+void WifiSys::atualizar() {
+    // Máquina de estados simples para gerir a conexão sem travar o RTOS
     if (WiFi.status() == WL_CONNECTED) {
-        Serial.println("\n[OK] WiFi Conectado!");
-        Serial.print("[SYSTEM] IP do NodeBot: ");
-        Serial.println(WiFi.localIP());
-        
-        setupRoutes();
-        server.begin();
-        return true;
+        if (!isConnected) {
+            Serial.println("\n[OK] WiFi Conectado!");
+            Serial.print("[SYSTEM] IP: ");
+            Serial.println(WiFi.localIP());
+            
+            if (MDNS.begin("nodebot")) {
+                Serial.println("[OK] MDNS: Acesse http://nodebot.local");
+            }
+            setupRoutes();
+            server.begin();
+            isConnected = true;
+        }
+        server.handleClient(); // Processa comandos web
+    } else {
+        if (isConnected) {
+            Serial.println("[AVISO] WiFi Desconectado. O robô continua operando offline.");
+            isConnected = false;
+        }
     }
-
-    Serial.println("\n[ERRO] WiFi: Falha ao conectar. Iniciando em modo Offline.");
-    return false;
 }
 
 void WifiSys::setupRoutes() {
@@ -42,7 +45,7 @@ void WifiSys::setupRoutes() {
 }
 
 void WifiSys::handleRoot() {
-    server.send(200, "text/plain", "NodeBot OS Online. Pronto para comandos.");
+    server.send(200, "text/plain", "NodeBot OS Online.");
 }
 
 void WifiSys::handleCommand() {
@@ -53,18 +56,14 @@ void WifiSys::handleCommand() {
 
         if (!error) {
             const char* acao = doc["action"];
-            
             if (strcmp(acao, "sim") == 0) Actions::dizerSim();
             else if (strcmp(acao, "nao") == 0) Actions::dizerNao();
             else if (strcmp(acao, "curioso") == 0) Actions::olharCurioso();
+            else if (strcmp(acao, "susto") == 0) Actions::reagirASusto();
             
             server.send(200, "application/json", "{\"status\":\"ok\"}");
             return;
         }
     }
     server.send(400, "application/json", "{\"status\":\"error\"}");
-}
-
-void WifiSys::atualizar() {
-    server.handleClient();
 }

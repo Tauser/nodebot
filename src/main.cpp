@@ -10,14 +10,15 @@
 #include "Touch.h"
 #include "Imu.h"
 #include "CameraSys.h"
-#include "WifiSys.h"
 #include "Actions.h"
+#include "WifiSys.h"
 
-// Handles das Tarefas do FreeRTOS
+// Handles das Tarefas (FreeRTOS)
 TaskHandle_t TaskHardwareHandle = NULL;
 TaskHandle_t TaskTelemetryHandle = NULL;
 TaskHandle_t TaskBrainHandle = NULL;
 
+// Estado Global
 SystemState currentState = STATE_BOOTING;
 EventGroupHandle_t systemEvents;
 
@@ -28,19 +29,18 @@ void TaskBrain(void *pvParameters);
 void setup() {
     Serial.begin(115200);
     delay(2000); 
-    Serial.println("\n[NODEBOT OS] Iniciando Sequência de Boot de Nível Industrial...");
+    Serial.println("\n[NODEBOT OS] Iniciando Boot de Nível Industrial...");
 
-    esp_task_wdt_init(5, true); // Watchdog de 5 segundos
+    // 1. Cão de Guarda (Watchdog) e Sistema de Arquivos
+    esp_task_wdt_init(5, true); 
     systemEvents = xEventGroupCreate();
 
     if (!LittleFS.begin(true)) {
-        Serial.println("[FATAL] Falha no Disco Rígido (LittleFS)!");
-        while(true); // Trava e deixa o Watchdog reiniciar
+        Serial.println("[FATAL] Erro ao montar LittleFS!");
+        while(true); 
     }
 
-    // ---------------------------------------------------------
-    // BOOT FAIL-FAST: Os 8 Pilares do Hardware
-    // ---------------------------------------------------------
+    // 2. Sequência Fail-Fast (8 Módulos)
     bool hwOk = true;
     hwOk &= Lights::iniciar();
     hwOk &= Power::iniciar();
@@ -50,81 +50,83 @@ void setup() {
     hwOk &= TouchSys::iniciar();
     hwOk &= ImuSys::iniciar();
     hwOk &= CameraSys::iniciar();
-    hwOk &= WifiSys::iniciar();
+    
+    // O WiFi é opcional no boot (pode conectar em background)
+    WifiSys::iniciar();
 
     if (hwOk) {
-        Serial.println("[SYSTEM] Todos os sistemas operacionais. Acordando o robô...");
+        Serial.println("[SYSTEM] Hardware validado. Iniciando RTOS...");
         currentState = STATE_IDLE;
         Display::definirEmocao(EMOCAO_NEUTRO);
 
-        // Core 1 (Motores e Ecrã)
+        // Core 1: Focado em Atuadores (Ecrã, Motores, Som) - Alta Prioridade
         xTaskCreatePinnedToCore(TaskHardware, "Hardware", 8192, NULL, 3, &TaskHardwareHandle, 1);
         
-        // Core 0 (Sensores, Telemetria e Inteligência)
+        // Core 0: Focado em Sensores e Conectividade - Prioridade Média/Baixa
         xTaskCreatePinnedToCore(TaskTelemetry, "Telemetry", 4096, NULL, 2, &TaskTelemetryHandle, 0);
         xTaskCreatePinnedToCore(TaskBrain, "Brain", 16384, NULL, 1, &TaskBrainHandle, 0);
 
         esp_task_wdt_add(TaskHardwareHandle);
         esp_task_wdt_add(TaskTelemetryHandle);
     } else {
-        Serial.println("[CRITICAL] Falha catastrófica de hardware. Modo de Segurança Ativado.");
         currentState = STATE_CRITICAL_STOP;
         Lights::atualizar(currentState);
-        Display::atualizar(currentState); 
     }
 }
 
 // ---------------------------------------------------------
-// CORE 1: ATUADORES (Garante que os movimentos são fluidos)
+// CORE 1: CICLO REAL-TIME (50Hz)
 // ---------------------------------------------------------
 void TaskHardware(void *pvParameters) {
     TickType_t xLastWakeTime = xTaskGetTickCount();
-    const TickType_t xFrequency = pdMS_TO_TICKS(20); // 50 FPS
+    const TickType_t xFrequency = pdMS_TO_TICKS(20); 
 
     for (;;) {
         esp_task_wdt_reset(); 
+        
         Display::atualizar(currentState);
         Motion::atualizar(currentState);
-        AudioSys::atualizar(); // Mantém o som a fluir
+        AudioSys::atualizar(); 
 
         xTaskDelayUntil(&xLastWakeTime, xFrequency);
     }
 }
 
 // ---------------------------------------------------------
-// CORE 0: REFLEXOS (Proteção e Sentidos Rápidos)
+// CORE 0: TELEMETRIA E REFLEXOS (20Hz)
 // ---------------------------------------------------------
 void TaskTelemetry(void *pvParameters) {
     TickType_t xLastWakeTime = xTaskGetTickCount();
-    const TickType_t xFrequency = pdMS_TO_TICKS(50); // 20 Hz
+    const TickType_t xFrequency = pdMS_TO_TICKS(50);
 
     for (;;) {
         esp_task_wdt_reset();
+        
         Lights::atualizar(currentState);
         Power::monitorar();
-        ImuSys::atualizar(); // Lê o Giroscópio
+        ImuSys::atualizar(); 
 
         if (currentState != STATE_CRITICAL_STOP) {
-            // 1. REFLEXO DE QUEDA (Autopreservação)
+            // REFLEXO 1: Queda ou Tombamento
             if (ImuSys::isCaido()) {
-                Serial.println("[ALERTA] Robô caiu! Cortando torque dos motores.");
-                Motion::relaxar();
-                Display::definirEmocao(EMOCAO_CANSADO); // Ou criar EMOCAO_DOR
-            }
-            // 2. REFLEXO DE TATO (Carinho)
+                if (currentState != STATE_SLEEPING) {
+                    Serial.println("[REFLEXO] Queda detetada!");
+                    Motion::relaxar(); // Protege os servos
+                    Display::definirEmocao(EMOCAO_CANSADO);
+                }
+            } 
+            // REFLEXO 2: Carinho (Touch Capacitivo)
             else if (TouchSys::lerTato()) {
                 Display::definirEmocao(EMOCAO_FELIZ);
             }
-            // 3. REFLEXO DE SUSTO (Abanão)
+            // REFLEXO 3: Abanão (Susto)
             else if (ImuSys::isAgitado()) {
+                Actions::olharCurioso(); // Reage ao movimento
                 Display::definirEmocao(EMOCAO_ZANGADO);
-            }
-            // Volta ao normal
-            else {
-                Display::definirEmocao(EMOCAO_NEUTRO);
             }
         }
 
+        // Monitorização de Bateria Crítica
         if (xEventGroupGetBits(systemEvents) & EVT_BATTERY_LOW) {
             currentState = STATE_CRITICAL_STOP;
         }
@@ -134,17 +136,20 @@ void TaskTelemetry(void *pvParameters) {
 }
 
 // ---------------------------------------------------------
-// CORE 0: CÉREBRO (IA, Visão e Wi-Fi)
+// CORE 0: INTELIGÊNCIA E COMUNICAÇÃO (10Hz)
 // ---------------------------------------------------------
 void TaskBrain(void *pvParameters) {
     for (;;) {
-        // 1. Processa pedidos Web (Comandos do PC/Telemóvel)
+        // Processa API Wi-Fi (Comandos JSON do PC)
         WifiSys::atualizar();
 
-        // 2. No futuro, aqui entrará o CameraSys::capturarFrame() 
-        // para fazer o stream de vídeo via Wi-Fi!
+        // Placeholder para Captura de Câmara (Visão Computacional)
+        /*
+        auto frame = CameraSys::capturarFrame();
+        if(frame) CameraSys::liberarFrame(frame);
+        */
 
-        vTaskDelay(pdMS_TO_TICKS(10)); // 100Hz para resposta rápida
+        vTaskDelay(pdMS_TO_TICKS(100)); 
     }
 }
 

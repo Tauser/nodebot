@@ -3,35 +3,45 @@
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
 
-// Escondemos o MPU6050 e as variáveis aqui, longe dos olhos do main.cpp!
 static Adafruit_MPU6050 mpu;
-static float aceleracaoX = 0;
-static float aceleracaoY = 0;
-static float aceleracaoZ = 0;
+static float aceleracaoX = 0, aceleracaoY = 0, aceleracaoZ = 0;
+static float offX = 0, offY = 0, offZ = 0;
 
 bool ImuSys::iniciar() {
-    Wire.begin(8, 9); // Pinos I2C: SDA=8, SCL=9
-
+    Wire.begin(8, 9); // Ajuste para os pinos I2C da sua placa
     if (!mpu.begin()) {
-        Serial.println("[ERRO] ImuSys: MPU6050 não encontrado! Verifique a fiação.");
+        Serial.println("[ERRO] ImuSys: MPU6050 não encontrado.");
         return false;
     }
 
     mpu.setAccelerometerRange(MPU6050_RANGE_4_G);
-    mpu.setGyroRange(MPU6050_RANGE_500_DEG);
     mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
 
-    Serial.println("[OK] ImuSys: Acelerómetro e Giroscópio online.");
+    // Calibração de Elite: Define o que é o "centro" físico do seu robô
+    Serial.println("[IMU] Calibrando...");
+    float sumX = 0, sumY = 0, sumZ = 0;
+    for(int i = 0; i < 50; i++) {
+        sensors_event_t a, g, temp;
+        mpu.getEvent(&a, &g, &temp);
+        sumX += a.acceleration.x;
+        sumY += a.acceleration.y;
+        sumZ += a.acceleration.z;
+        delay(5); // Delay seguro durante o setup
+    }
+    offX = sumX / 50.0;
+    offY = sumY / 50.0;
+    offZ = (sumZ / 50.0) - 9.81; // Desconta a gravidade
+    
+    Serial.println("[OK] ImuSys: Zerado e Online.");
     return true;
 }
 
 void ImuSys::atualizar() {
     sensors_event_t a, g, temp;
     mpu.getEvent(&a, &g, &temp);
-
-    aceleracaoX = a.acceleration.x;
-    aceleracaoY = a.acceleration.y;
-    aceleracaoZ = a.acceleration.z;
+    aceleracaoX = a.acceleration.x - offX;
+    aceleracaoY = a.acceleration.y - offY;
+    aceleracaoZ = a.acceleration.z - offZ;
 }
 
 bool ImuSys::isCaido() {
