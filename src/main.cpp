@@ -12,6 +12,7 @@
 #include "CameraSys.h"
 #include "Actions.h"
 #include "WifiSys.h"
+#include "SDSys.h"
 
 // Handles das Tarefas (FreeRTOS)
 TaskHandle_t TaskHardwareHandle = NULL;
@@ -31,7 +32,6 @@ void setup() {
     delay(2000); 
     Serial.println("\n[NODEBOT OS] Iniciando Boot de Nível Industrial...");
 
-    // 1. Cão de Guarda (Watchdog) e Sistema de Arquivos
     esp_task_wdt_init(5, true); 
     systemEvents = xEventGroupCreate();
 
@@ -40,7 +40,6 @@ void setup() {
         while(true); 
     }
 
-    // 2. Sequência Fail-Fast (8 Módulos)
     bool hwOk = true;
     hwOk &= Lights::iniciar();
     hwOk &= Power::iniciar();
@@ -50,8 +49,9 @@ void setup() {
     hwOk &= TouchSys::iniciar();
     hwOk &= ImuSys::iniciar();
     hwOk &= CameraSys::iniciar();
+    hwOk &= SDSys::iniciar();
+    hwOk &= AudioSys::iniciar();
     
-    // O WiFi é opcional no boot (pode conectar em background)
     WifiSys::iniciar();
 
     if (hwOk) {
@@ -59,10 +59,10 @@ void setup() {
         currentState = STATE_IDLE;
         Display::definirEmocao(EMOCAO_NEUTRO);
 
-        // Core 1: Focado em Atuadores (Ecrã, Motores, Som) - Alta Prioridade
+        // Core 1: Atuadores - Alta Prioridade
         xTaskCreatePinnedToCore(TaskHardware, "Hardware", 8192, NULL, 3, &TaskHardwareHandle, 1);
         
-        // Core 0: Focado em Sensores e Conectividade - Prioridade Média/Baixa
+        // Core 0: Sensores e Conectividade - Prioridade Média/Baixa
         xTaskCreatePinnedToCore(TaskTelemetry, "Telemetry", 4096, NULL, 2, &TaskTelemetryHandle, 0);
         xTaskCreatePinnedToCore(TaskBrain, "Brain", 16384, NULL, 1, &TaskBrainHandle, 0);
 
@@ -139,16 +139,8 @@ void TaskTelemetry(void *pvParameters) {
 // CORE 0: INTELIGÊNCIA E COMUNICAÇÃO (10Hz)
 // ---------------------------------------------------------
 void TaskBrain(void *pvParameters) {
-    for (;;) {
-        // Processa API Wi-Fi (Comandos JSON do PC)
+    for (;;) {    
         WifiSys::atualizar();
-
-        // Placeholder para Captura de Câmara (Visão Computacional)
-        /*
-        auto frame = CameraSys::capturarFrame();
-        if(frame) CameraSys::liberarFrame(frame);
-        */
-
         vTaskDelay(pdMS_TO_TICKS(100)); 
     }
 }

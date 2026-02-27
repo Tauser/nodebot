@@ -4,7 +4,7 @@
 #include <freertos/event_groups.h>
 
 // =========================================================
-// 1. MAPEAMENTO DE HARDWARE (Pinout ESP32-S3)
+// 1. MAPEAMENTO DE HARDWARE
 // =========================================================
 #define SERVO_RX 18
 #define SERVO_TX 17
@@ -15,7 +15,6 @@
 // =========================================================
 // 2. MÁQUINA DE ESTADOS GLOBAL (FSM)
 // =========================================================
-// Define exatamente o que o robô está fazendo no momento
 enum SystemState {
     STATE_BOOTING,       // Iniciando e testando hardware
     STATE_IDLE,          // Saudável, respirando, esperando
@@ -26,9 +25,8 @@ enum SystemState {
 };
 
 // =========================================================
-// 3. EMOÇÕES DO ECRÃ (Visão)
+// 3. EMOÇÕES
 // =========================================================
-// Define a expressão facial atual do robô
 enum Emocao {
     EMOCAO_NEUTRO,
     EMOCAO_FELIZ,
@@ -37,16 +35,15 @@ enum Emocao {
 };
 
 // =========================================================
-// 4. BARRAMENTO DE EVENTOS (Pub/Sub do FreeRTOS)
+// 4. BARRAMENTO DE EVENTOS 
 // =========================================================
-// Cada evento é um "bit" que pode ser ativado (1) ou lido.
 #define EVT_HW_DISPLAY_OK   (1 << 0) // Bit 0
 #define EVT_HW_MOTION_OK    (1 << 1) // Bit 1
 #define EVT_BATTERY_LOW     (1 << 2) // Bit 2
 #define EVT_ENTER_SLEEP     (1 << 3) // Bit 3
 
 // =========================================================
-// Variáveis Globais (Implementadas no main.cpp)
+// Variáveis Globais
 // =========================================================
 extern SystemState currentState;
 extern EventGroupHandle_t systemEvents;

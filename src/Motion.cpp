@@ -1,6 +1,8 @@
 #include "Motion.h"
 
 SMS_STS Motion::st;
+int Motion::alvoX = 2048; // Centro padrão dos motores Feetech
+int Motion::alvoY = 2048;
 
 bool Motion::iniciar() {
     Serial1.begin(1000000, SERIAL_8N1, SERVO_RX, SERVO_TX);
@@ -28,16 +30,40 @@ bool Motion::testarComunicacao() {
     return (v != -1);
 }
 
-void Motion::atualizar(SystemState estadoAtual) {
-    // Se o sistema entrar em paragem crítica, cortamos o torque
-    if (estadoAtual == STATE_CRITICAL_STOP) {
+// Dentro do seu Motion.cpp, na função atualizar():
+
+void Motion::atualizar(SystemState state) {
+    if (state == STATE_CRITICAL_STOP || state == STATE_SLEEPING) {
         relaxar();
+        return;
     }
+
+    // Calcula os alvos dinâmicos
+    int alvoAtualX = alvoX;
+    int alvoAtualY = alvoY;
+
+    // A MÁGICA DA RESPIRAÇÃO
+    if (state == STATE_IDLE) {
+        // Usa a função sin() com millis() para criar uma curva suave e perpétua.
+        // O divisor 600.0 dita a velocidade (frequência).
+        // O multiplicador 30 dita a força da respiração (amplitude em passos de servo).
+        int compensacaoRespiracao = sin(millis() / 600.0) * 30; 
+        
+        // Aplica a respiração apenas no eixo Y (Cima/Baixo)
+        alvoAtualY += compensacaoRespiracao;
+    }
+
+    // Daqui para baixo, o código mantém-se igual, enviando 
+    // os valores alvoAtualX e alvoAtualY para os servos Feetech...
 }
 
 void Motion::olharPara(int pan, int tilt, int vel, int acc) {
     int sPan = constrain(pan, PAN_MIN, PAN_MAX);
     int sTilt = constrain(tilt, TILT_MIN, TILT_MAX);
+
+    // MEMÓRIA DO SISTEMA: Guarda a base para a "respiração" saber onde estamos
+    alvoX = sPan; 
+    alvoY = sTilt;
 
     // Envio robusto individual
     st.WritePosEx(1, sPan, vel, acc);
@@ -52,3 +78,4 @@ void Motion::relaxar() {
 void Motion::centralizar() {
     olharPara(2048, 2048, 400, 20);
 }
+

@@ -12,6 +12,18 @@ public:
 private:
     static TFT_eSPI tft;
     static Emocao emocaoAtual;
-    static Emocao emocaoAnterior; // Para garantir que só redesenha quando necessário!
+    static Emocao emocaoAnterior; 
+    
+    // Relógio Biológico (Blink)
+    static unsigned long ultimoTempoPiscar;
+    static int intervaloPiscar;
+    static bool isPiscando;
+
+    // Relógio Biológico (Saccades) -> Faltava declarar isto!
+    static unsigned long ultimoTempoSaccade;
+    static int intervaloSaccade;
+    static int offsetOlharX;
+    static int offsetOlharY;
+
     static void desenharRosto();
 };
