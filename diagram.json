@@ -1,0 +1,81 @@
+{
+  "version": 1,
+  "author": "NodeBot OS",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-esp32-s3-devkitc-1",
+      "id": "esp",
+      "top": -240.18,
+      "left": -24.23,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-ili9341",
+      "id": "tft",
+      "top": -273.5,
+      "left": 212.4,
+      "rotate": 90,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-neopixel",
+      "id": "led1",
+      "top": -243.5,
+      "left": 152.6,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-neopixel",
+      "id": "led2",
+      "top": -243.5,
+      "left": 431,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-microsd-card",
+      "id": "sd",
+      "top": -162.97,
+      "left": -163.13,
+      "attrs": {}
+    }
+  ],
+  "connections": [
+    ["esp:GND.1", "tft:GND", "black", ["h-19.25", "v48", "h192", "v-192"]],
+    ["esp:3V3.1", "tft:VCC", "red", ["v-38.4", "h143.95", "v86.4"]],
+    ["esp:16", "tft:LED", "red", ["v-38.4", "h143.95", "v86.4"]],
+    ["esp:21", "tft:SCK", "green", ["h76.8", "v-57.59"]],
+    ["esp:47", "tft:MOSI", "blue", ["h67.2", "v-57.59"]],
+    ["esp:45", "tft:CS", "orange", ["h48", "v-67.2"]],
+    ["esp:48", "tft:D/C", "purple", ["h57.6", "v-57.6"]],
+    ["esp:EN", "tft:RESET", "yellow", []],
+    ["esp:TX", "$serialMonitor:RX", "", []],
+    ["esp:RX", "$serialMonitor:TX", "", []],
+    ["esp:GND.2", "led1:VSS", "black", ["v-57.6", "h115.2", "v39.3"]],
+    ["esp:5V", "led1:VDD", "red", ["h-28.85", "v76.8", "h182.4", "v-297.6"]],
+    [
+      "esp:2",
+      "led1:DIN",
+      "green",
+      ["h19.2", "v67.2", "h19.2", "v-153.6", "h68"]
+    ],
+    [
+      "esp:5V",
+      "led2:VDD",
+      "red",
+      ["h-38.45", "v67.2", "h528", "v-307.2", "h-38.4"]
+    ],
+    ["led1:DOUT", "led2:DIN", "green", ["h-9.6", "v-20.1", "h308"]],
+    [
+      "esp:GND.3",
+      "sd:GND",
+      "black",
+      ["h19.2", "v105.6", "h-153.6", "v-220.91"]
+    ],
+    ["esp:3V3.2", "sd:VCC", "red", ["h-28.85", "v86.26"]],
+    ["esp:39", "sd:CLK", "orange", []],
+    ["esp:38", "sd:CMD", "blue", []],
+    ["esp:40", "sd:D0", "green", []]
+  ],
+  "dependencies": {}
+}
