@@ -1,27 +1,30 @@
 #pragma once
-#include "services/face/FaceService.h" 
-#include "ai/AdaptiveModel.h"
-#include "ai/EmotionModel.h"
+
+#include <stdint.h>
+#include "../ai/EmotionModel.h" // Importa do local correto
 
 struct InternalState {
-    float energy;      
-    float curiosity;   
-    float stimulation; 
+    float energy;       // 0.0 (Exausto) a 1.0 (Cheio)
+    float curiosity;    // 0.0 (Entediado) a 1.0 (Muito Curioso)
+    float socialMood;   // -1.0 (Anti-social) a 1.0 (Sociável)
     Emotion currentEmotion;
 };
 
 class PersonalityService {
 public:
-    void init(AdaptiveModel* adaptiveModel);
+    PersonalityService();
+
     void update(uint32_t deltaMs);
-    void addStimulus(float intensity);
-    void expendEnergy(float amount);
-    void rest(float amount);
+
+    // Getters
     const InternalState& getState() const;
+
+    // Modificadores de estado (Inputs de sensores)
+    void adjustEnergy(float delta);
+    void adjustCuriosity(float delta);
+    void adjustSocialMood(float delta);
 
 private:
     InternalState _state;
-    AdaptiveModel* _adaptiveModel;
-    EmotionModel _emotionModel; 
-    void evaluateEmotion(); 
+    void determineEmotion();
 };

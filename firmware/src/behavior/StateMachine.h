@@ -1,38 +1,22 @@
 #pragma once
-#include <stdint.h>
-#include "services/face/FaceService.h"
-#include "services/MotionService.h"
 
-// Os "Macros" Contextuais do Robô
+#include <stdint.h>
+
 enum class BotState {
-    BOOTING,
-    IDLE,        // Relaxado, poupando energia
-    OBSERVING,   // Atento ao ambiente (ex: ouviu algo)
-    INTERACTING, // Focado numa pessoa (Tato ou Visão)
-    SLEEPING     // Em repouso absoluto
+    IDLE,       // Nada a acontecer, economiza energia
+    OBSERVING,  // Detectou algo, está a analisar
+    INTERACTING,// Em interação ativa
+    SLEEPING    // Bateria fraca ou inatividade longa
 };
 
 class StateMachine {
 public:
-    void init(FaceService* face, MotionService* motion);
+    StateMachine();
+
+    void update(bool faceDetected, float energyLevel, uint32_t timeSinceLastInteraction);
     
-    // Atualiza a vida de fundo do estado atual (ex: ressonar enquanto dorme)
-    void update(uint32_t deltaMs);
-    
-    // O Árbitro (Coordinator) chama isto para forçar uma transição
-    void changeState(BotState newState);
-    
-    BotState getCurrentState() const;
-    uint32_t getTimeInState() const; // Útil para timeouts
+    BotState getCurrentState() const { return _currentState; }
 
 private:
     BotState _currentState;
-    FaceService* _face;
-    MotionService* _motion;
-
-    uint32_t _timeInStateMs;
-
-    // Funções internas de transição rigorosa
-    void onEnterState(BotState state);
-    void onExitState(BotState state);
 };

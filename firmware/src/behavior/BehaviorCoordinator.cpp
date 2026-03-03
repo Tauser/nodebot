@@ -1,44 +1,48 @@
 #include "BehaviorCoordinator.h"
 
-void BehaviorCoordinator::init(PersonalityService* personality, FaceService* face, MotionService* motion, StateMachine* stateMachine) {
-    _personality = personality;
-    _face = face;
-    _motion = motion;
-    _stateMachine = stateMachine; // Injetamos a state machine aqui
+BehaviorCoordinator::BehaviorCoordinator() {
+    _faceDetected = false;
+    _faceX = 0.0f;
+    _faceY = 0.0f;
+    _nextFaceCommand.isValid = false;
 }
 
-void BehaviorCoordinator::arbitrate() {
-    const InternalState& state = _personality->getState();
-    BotState currentState = _stateMachine->getCurrentState();
+void BehaviorCoordinator::setFaceDetected(bool detected, float x, float y) {
+    _faceDetected = detected;
+    _faceX = x;
+    _faceY = y;
+}
 
-    // 1. Regra de Sobrevivência Vital (Bateria/Energia Interna)
-    if (state.energy < 0.1f && currentState != BotState::SLEEPING) {
-        _stateMachine->changeState(BotState::SLEEPING);
-        return; // Prioridade máxima, sai da função
-    }
+void BehaviorCoordinator::arbitrate(const InternalState& state) {
+    _nextFaceCommand.isValid = true;
+    _nextFaceCommand.emotion = state.currentEmotion;
 
-    // 2. Acordar Naturalmente
-    if (state.energy > 0.8f && currentState == BotState::SLEEPING) {
-        _stateMachine->changeState(BotState::IDLE);
+    // Regra 1: Se estiver com sono, ignora o mundo e fecha os olhos (metaforicamente)
+    if (state.currentEmotion == Emotion::SLEEPY) {
+        _nextFaceCommand.attentionFocusX = 0.0f; // Centro/Baixo
+        _nextFaceCommand.attentionFocusY = -0.5f; 
         return;
     }
 
-    // 3. Reação ao Estímulo
-    if (currentState == BotState::IDLE) {
-        if (state.stimulation > 0.5f) {
-            _stateMachine->changeState(BotState::OBSERVING);
+    // Regra 2: Se detectou rosto e está curioso/sociável, foca no rosto
+    if (_faceDetected) {
+        if (state.curiosity > 0.3f) {
+            _nextFaceCommand.attentionFocusX = _faceX;
+            _nextFaceCommand.attentionFocusY = _faceY;
+        } else {
+            // Tédio: ignora o rosto propositalmente
+            _nextFaceCommand.attentionFocusX = -_faceX; // Olha pro outro lado
+            _nextFaceCommand.attentionFocusY = 0.0f;
         }
+    } else {
+        // Idle behavior: olhar aleatório ou centro
+        _nextFaceCommand.attentionFocusX = 0.0f;
+        _nextFaceCommand.attentionFocusY = 0.0f;
     }
-    else if (currentState == BotState::OBSERVING) {
-        if (state.stimulation < 0.1f && _stateMachine->getTimeInState() > 5000) {
-            // Se ficou calmo por 5 segundos, volta a relaxar
-            _stateMachine->changeState(BotState::IDLE);
-        }
-    }
+}
 
-    // 4. Aplica a emoção dominante calculada pela Personalidade
-    // (Apenas se não estiver a dormir, pois a StateMachine já controla a cara no sono)
-    if (currentState != BotState::SLEEPING) {
-        _face->showEmotion(state.currentEmotion);
-    }
+FaceCommand BehaviorCoordinator::getLatestFaceCommand() {
+    FaceCommand cmd = _nextFaceCommand;
+    _nextFaceCommand.isValid = false; // Consome o comando
+    return cmd;
 }

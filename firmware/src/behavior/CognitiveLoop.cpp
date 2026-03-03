@@ -1,67 +1,54 @@
 #include "CognitiveLoop.h"
-#include <Arduino.h>
+#include <Arduino.h> // Para logs ou funções específicas do ESP32
 
-void CognitiveLoop::init(FaceService* face, MotionService* motion) {
-    _face = face;
-    _motion = motion;
-
-    // 1. Inicializa a Memória e Adaptação (Fase 5)
-    _memoryManager.init();
-    _adaptiveModel.init(&_memoryManager);
-
-    // 2. Inicializa a Personalidade (injetando os vieses da Fase 5)
-    _personality.init(&_adaptiveModel);
-
-    // 3. Inicializa a Arquitetura Comportamental (Fase 4)
-    _stateMachine.init(_face, _motion);
-    _reflexes.init(_face, _motion);
-    _coordinator.init(&_personality, _face, _motion, &_stateMachine);
-    
-    _lastTickMs = millis();
+CognitiveLoop::CognitiveLoop(PersonalityService& personality, BehaviorCoordinator& coordinator)
+    : _personality(personality), _coordinator(coordinator) {
 }
 
-void CognitiveLoop::tick() {
-    uint32_t now = millis();
-    uint32_t deltaMs = now - _lastTickMs;
-    
-    // Limita o cérebro a rodar a 20Hz (50ms)
-    if (deltaMs < 50) return; 
-    _lastTickMs = now;
-
-    // 1. Ler Entradas do EventBus
+void CognitiveLoop::update(uint32_t deltaMs) {
+    // 1. Avaliar Estímulos e Reflexos (Rápido)
     evaluateStimuli();
+    
+    // Se um reflexo disparou (ex: susto), interrompe o pensamento racional
+    // if (_reflexEngine.checkReflexes(audioLevel, touch)) return;
 
-    // 2. Atualiza Química Interna
-    _personality.update(deltaMs);
+    // 2. Atualizar Máquina de Estados (Contexto)
+    // _stateMachine.update(faceDetected, _personality.getState().energy, 0);
 
-    // 3. Evolução/Adaptação Lenta (FASE 5)
-    _adaptiveModel.adapt(deltaMs);
+    // 3. Atualizar Estado Interno (Emoções e Variáveis)
+    updateInternalState(deltaMs);
 
-    // 4. Manutenção de Estados
-    _stateMachine.update(deltaMs);
+    // 4. Escolher Comportamento (Decisão Racional)
+    chooseBehavior();
 
-    // 5. O Árbitro toma a decisão final
-    _coordinator.arbitrate();
+    // 5. Executar Comportamento (Ação)
+    executeBehavior();
 }
 
 void CognitiveLoop::evaluateStimuli() {
-    EventMessage msg;
+    // Aqui você coletaria dados do EventBus ou Sensores
+    // Exemplo:
+    // if (VisionService::hasFace()) {
+    //     _coordinator.setFaceDetected(true, x, y);
+    //     _personality.adjustCuriosity(0.1f); // Ver rosto aumenta curiosidade
+    // }
+}
+
+void CognitiveLoop::updateInternalState(uint32_t deltaMs) {
+    _personality.update(deltaMs);
+}
+
+void CognitiveLoop::chooseBehavior() {
+    _coordinator.arbitrate(_personality.getState());
+}
+
+void CognitiveLoop::executeBehavior() {
+    FaceCommand cmd = _coordinator.getLatestFaceCommand();
     
-    // Processa TODAS as mensagens que estão na fila neste tick
-    while (Bus.consume(msg)) {
-        switch (msg.type) {
-            case SystemEvent::TOUCH_PETTING:
-                _personality.addStimulus(0.6f); 
-                _personality.rest(0.2f); // Carinho relaxa o robô
-                break;
-                
-            case SystemEvent::LOUD_NOISE:
-                _reflexes.onLoudNoise(); // Dispara o reflexo instantâneo!
-                _personality.expendEnergy(0.1f); // Assustar gasta energia
-                break;
-                
-            default:
-                break;
-        }
+    if (cmd.isValid) {
+        // Enviar para o FaceService
+        // FaceService::getInstance()->setExpression(cmd.emotion);
+        // FaceService::getInstance()->lookAt(cmd.attentionFocusX, cmd.attentionFocusY);
+        // Serial.printf("Executando: Emoção %d, Olhar X:%.2f\n", (int)cmd.emotion, cmd.attentionFocusX);
     }
 }

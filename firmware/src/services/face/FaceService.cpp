@@ -1,83 +1,93 @@
 #include "FaceService.h"
-#include <Arduino.h>
 
-void FaceService::init() {
-    _renderer.init();
+void FaceService::begin(DisplayDriver& driver) {
+    _tft = driver.getLGFX();
     
-    // Liga a animação ao modelo
-    _blinkAnim.attachModel(&_model);
+    // SOLUÇÃO 4: Usar 16 bits de cor (Reduz tráfego de dados em 33% vs 24 bits)
+    canvas.setColorDepth(16);
+
+    // Voltamos para a PSRAM para garantir que o buffer de vídeo tenha um espaço seguro e isolado.
+    canvas.setPsram(true);
+    canvas.createSprite(240, 240);
     
-    // Estado inicial
-    _model.setPupil(0, 0);
-    _model.setLid(1.0);
-    _timeUntilNextBlink = 3000; // Começa a piscar daqui a 3s
+    // INICIALIZAÇÃO CRÍTICA PARA AS ANIMAÇÕES FUNCIONAREM
+    model.blinkState = BlinkState::EYE_OPEN;
+    model.blinkFactor = 1.0f;
+    model.blinkInterval = 3000; // Começa com 3 segundos
+    model.currentSaccadeX = 0;
+    model.currentSaccadeY = 0;
+    
+    renderer.init(&canvas);
+    setExpression(Expression::NEUTRAL);
 }
 
-void FaceService::update(uint32_t deltaMs) {
-    // 1. Processa Animações Ativas
-    for (size_t i = 0; i < _activeAnimations.size(); ) {
-        Animation* anim = _activeAnimations[i];
-        anim->update(deltaMs);
-        
-        if (anim->finished()) {
-            // Remove animação da lista quando termina
-            _activeAnimations.erase(_activeAnimations.begin() + i);
-        } else {
-            i++;
-        }
-    }
+void FaceService::update() {
+    // Se o animator.update travar aqui, o log do blinkFactor nunca muda
+    animator.update(model); 
     
-    // 2. Gere o Piscar Automático (Autonomic System)
-    handleAutoBlink(deltaMs);
+    renderer.render(model);
     
-    // 3. Renderiza o estado final no ecrã
-    _renderer.render(_model);
+    // CORREÇÃO DE POSICIONAMENTO:
+    // A tela está em modo retrato (240 de largura por 320 de altura).
+    // O rosto é um quadrado de 240x240. Para centralizá-lo, o x deve ser 0 e o y deve ser (320 - 240) / 2 = 40.
+    canvas.pushSprite(_tft, 0, 40); 
 }
 
-void FaceService::triggerBlink() {
-    // Se já estiver a piscar, ignora para não encravar
-    for(auto* a : _activeAnimations) {
-        if (a == &_blinkAnim) return;
-    }
+// ==========================================
+// O SEU setExpression CONTINUA EXATAMENTE IGUAL
+// ==========================================
+void FaceService::setExpression(Expression expr) {
+    model.currentExpression = expr;
     
-    _blinkAnim.start();
-    _activeAnimations.push_back(&_blinkAnim);
-}
+    model.baseWidth = 80; 
+    model.baseHeight = 80; 
+    model.baseRadius = 16; 
+    model.blinkInterval = 4000;
 
-void FaceService::handleAutoBlink(uint32_t deltaMs) {
-    if (_timeUntilNextBlink <= deltaMs) {
-        triggerBlink();
-        // Define o próximo piscar para um tempo aleatório entre 2s e 6s
-        _timeUntilNextBlink = 2000 + (rand() % 4000);
-    } else {
-        _timeUntilNextBlink -= deltaMs;
-    }
-}
-
-void FaceService::showEmotion(Emotion emotion) {
-    applyEmotionBaseState(emotion);
-}
-
-void FaceService::applyEmotionBaseState(Emotion emotion) {
-    switch(emotion) {
-        case Emotion::NEUTRAL:
-            _model.setPupilSize(1.0);
-            _model.setLid(1.0);
+    switch (expr) {
+        case Expression::NEUTRAL:
             break;
-        case Emotion::HAPPY:
-            _model.setPupilSize(1.2); // Pupila grande = Fofura
-            _model.setLid(1.0);
+        case Expression::HAPPY:
+            model.blinkInterval = 3000;
             break;
-        case Emotion::SLEEPING:
-            _model.setLid(0.0); // Olhos fechados
+        case Expression::ANGRY: 
+            model.baseRadius = 10;
+            model.blinkInterval = 6000;
             break;
-        case Emotion::SURPRISED:
-            _model.setPupilSize(0.6); // Pupila pequena = Choque
-            _model.setLid(1.0);
+        case Expression::SAD: 
+            model.baseWidth = 70;
+            model.baseHeight = 70; 
+            model.blinkInterval = 5000;
             break;
-        default:
-            _model.setPupilSize(1.0);
-            _model.setLid(1.0);
+        case Expression::SURPRISED: 
+            model.baseWidth = 96;
+            model.baseHeight = 96; 
+            model.baseRadius = 32;
+            model.blinkInterval = 10000;
+            break;
+        case Expression::FOCUSED:
+            model.blinkInterval = 8000; 
+            break;
+        case Expression::SKEPTIC:
+            model.blinkInterval = 5000;
+            break;
+        case Expression::UNIMPRESSED:
+            model.blinkInterval = 6000;
+            break;
+        case Expression::WORRIED:
+            model.blinkInterval = 2500;
+            break;
+        case Expression::FURIOUS: 
+            model.baseHeight = 70;
+            model.baseRadius = 10;
+            model.blinkInterval = 7000; 
+            break;
+        case Expression::SQUINT: 
+            model.baseHeight = 60;
+            model.blinkInterval = 5000; 
+            break;
+        case Expression::SUSPICIOUS:
+            model.blinkInterval = 6000;
             break;
     }
 }

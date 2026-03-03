@@ -8,7 +8,10 @@
       "id": "esp",
       "top": -240.18,
       "left": -24.23,
-      "attrs": {}
+      "attrs": {
+        "flashSize": "16",
+        "psramSize": "8"
+      }
     },
     {
       "type": "wokwi-ili9341",
@@ -40,15 +43,15 @@
       "attrs": {}
     }
   ],
-  "connections": [
-    ["esp:GND.1", "tft:GND", "black", ["h-19.25", "v48", "h192", "v-192"]],
-    ["esp:3V3.1", "tft:VCC", "red", ["v-38.4", "h143.95", "v86.4"]],
-    ["esp:16", "tft:LED", "red", ["v-38.4", "h143.95", "v86.4"]],
-    ["esp:21", "tft:SCK", "green", ["h76.8", "v-57.59"]],
-    ["esp:47", "tft:MOSI", "blue", ["h67.2", "v-57.59"]],
-    ["esp:45", "tft:CS", "orange", ["h48", "v-67.2"]],
-    ["esp:48", "tft:D/C", "purple", ["h57.6", "v-57.6"]],
-    ["esp:EN", "tft:RESET", "yellow", []],
+	"connections": [
+    ["esp:GND.1", "tft:GND", "black", []],
+    ["esp:3V3.1", "tft:VCC", "red", []],
+    ["esp:3V3.1", "tft:RESET", "yellow", []],
+    ["esp:3V3.1", "tft:LED", "red", []],
+    ["esp:12", "tft:SCK", "green", []],
+    ["esp:11", "tft:MOSI", "blue", []],
+    ["esp:10", "tft:CS", "orange", []],
+    ["esp:13", "tft:D/C", "purple", []],
     ["esp:TX", "$serialMonitor:RX", "", []],
     ["esp:RX", "$serialMonitor:TX", "", []],
     ["esp:GND.2", "led1:VSS", "black", ["v-57.6", "h115.2", "v39.3"]],

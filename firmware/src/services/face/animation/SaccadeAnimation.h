@@ -1,46 +1,20 @@
 #pragma once
-#include "Animation.h"
+#include <Arduino.h>
 #include "../model/EyeModel.h"
 
-class SaccadeAnimation : public Animation {
+class SaccadeAnimation {
 private:
-    EyeModel* _model = nullptr;
-    float _startX, _startY;
-    float _targetX, _targetY;
-    uint32_t _elapsed = 0;
-    const uint32_t _duration = 120; // Movimento rápido
+    float targetX = 0;
+    float targetY = 0;
+    unsigned long lastMoveTime = 0;
+    unsigned long nextInterval = 1000;
+    
+    // Suavização: 0.1 é bem fluido, 0.4 é mais brusco.
+    const float easing = 0.12f; 
 
 public:
-    void attachModel(EyeModel* m) { _model = m; }
+    void update(EyeModel& model, unsigned long currentTime);
     
-    // Evita o 'new'. Configura os alvos antes de dar play()
-    void setTarget(float tx, float ty) {
-        _targetX = tx;
-        _targetY = ty;
-    }
-
-    void start() override {
-        if (!_model) return;
-        _startX = _model->get().pupilX;
-        _startY = _model->get().pupilY;
-        _elapsed = 0;
-    }
-
-    void update(uint32_t deltaMs) override {
-        if (!_model) return;
-        _elapsed += deltaMs;
-        
-        float t = (float)_elapsed / _duration;
-        if (t > 1.0f) t = 1.0f;
-
-        float eased = t * t; // Curva suave simples
-
-        float nx = _startX + (_targetX - _startX) * eased;
-        float ny = _startY + (_targetY - _startY) * eased;
-
-        _model->setPupil(nx, ny);
-    }
-
-    bool finished() override { return _elapsed >= _duration; }
-    int priority() const override { return 1; }
+    // Função para o "Susto": Força um olhar rápido para um ponto
+    void lookAt(float x, float y);
 };

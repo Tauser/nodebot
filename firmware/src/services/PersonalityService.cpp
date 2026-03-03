@@ -1,81 +1,67 @@
 #include "PersonalityService.h"
-#include <Arduino.h>
+#include <algorithm> // para std::clamp se disponível, ou usar macros
 
-void PersonalityService::init(AdaptiveModel* adaptiveModel) {
-    _adaptiveModel = adaptiveModel;
-    _state.energy = 1.0f;       
-    _state.curiosity = 0.5f;    
-    _state.stimulation = 0.0f;  
+// Helper para limitar valores
+float clamp(float v, float lo, float hi) {
+    if (v < lo) return lo;
+    if (v > hi) return hi;
+    return v;
+}
+
+PersonalityService::PersonalityService() {
+    // Estado inicial
+    _state.energy = 1.0f;
+    _state.curiosity = 0.5f;
+    _state.socialMood = 0.0f;
     _state.currentEmotion = Emotion::NEUTRAL;
 }
 
 void PersonalityService::update(uint32_t deltaMs) {
-    float decayRate = deltaMs / 1000.0f;
+    // Decaimento natural ao longo do tempo
+    float decayFactor = deltaMs / 1000.0f; // Segundos
+
+    // A energia cai lentamente com o tempo
+    _state.energy -= 0.01f * decayFactor; 
     
-    // LÊ A PERSONALIDADE APRENDIDA (Os Vieses)
-    const PersonalityBiases& biases = _adaptiveModel->getBiases();
-    
-    // 1. Decaimento de Estímulo alterado pela Sociabilidade
-    // Se o robô for muito sociável (bias > 0), o estímulo cai mais devagar. 
-    // Se for anti-social (bias < 0), ele esquece a interação mais rápido.
-    float stimDecay = 0.05f - (biases.sociabilityBias * 0.02f);
-    if (stimDecay < 0.01f) stimDecay = 0.01f; // Limite mínimo
-    
-    _state.stimulation -= stimDecay * decayRate;
+    // A curiosidade cai se nada acontecer (tédio)
+    _state.curiosity -= 0.05f * decayFactor;
 
-    // 2. Gasto de energia alterado pela Reatividade
-    // Um robô reativo/assustadiço (bias > 0) queima energia mais rápido sob stress (estímulo alto)
-    float energyDrain = 0.005f;
-    if (_state.stimulation > 0.6f && biases.reactivityBias > 0.1f) {
-        energyDrain += 0.01f * biases.reactivityBias; 
-    }
-    _state.energy -= energyDrain * decayRate; 
+    // Normalização dos valores
+    _state.energy = clamp(_state.energy, 0.0f, 1.0f);
+    _state.curiosity = clamp(_state.curiosity, 0.0f, 1.0f);
+    _state.socialMood = clamp(_state.socialMood, -1.0f, 1.0f);
 
-    // 3. Tédio vs Curiosidade
-    if (_state.stimulation < 0.1f) {
-        _state.curiosity -= 0.01f * decayRate;
-    } else {
-        // Se a Reatividade for alta, ele fica curioso MUITO mais depressa com qualquer ruído
-        _state.curiosity += (0.02f + biases.reactivityBias * 0.01f) * decayRate;
-    }
-
-    // (O resto mantém-se igual: Clamps de segurança entre 0 e 1 e evaluateEmotion)
-    if (_state.energy < 0.0f) _state.energy = 0.0f;
-    if (_state.energy > 1.0f) _state.energy = 1.0f;
-    if (_state.stimulation < 0.0f) _state.stimulation = 0.0f;
-    if (_state.stimulation > 1.0f) _state.stimulation = 1.0f;
-    if (_state.curiosity < 0.0f) _state.curiosity = 0.0f;
-    if (_state.curiosity > 1.0f) _state.curiosity = 1.0f;
-
-    evaluateEmotion();
+    determineEmotion();
 }
 
-void PersonalityService::addStimulus(float intensity) {
-    _state.stimulation += intensity;
-    if (_state.stimulation > 1.0f) _state.stimulation = 1.0f;
+void PersonalityService::adjustEnergy(float delta) {
+    _state.energy = clamp(_state.energy + delta, 0.0f, 1.0f);
+    determineEmotion();
 }
 
-void PersonalityService::expendEnergy(float amount) {
-    _state.energy -= amount;
+void PersonalityService::adjustCuriosity(float delta) {
+    _state.curiosity = clamp(_state.curiosity + delta, 0.0f, 1.0f);
+    determineEmotion();
 }
 
-void PersonalityService::rest(float amount) {
-    _state.energy += amount;
-}
-
-void PersonalityService::evaluateEmotion() {
-    // Busca os vieses da personalidade adaptativa
-    const PersonalityBiases& biases = _adaptiveModel->getBiases();
-
-    // DELEGA a decisão para o motor de Inteligência Artificial!
-    _state.currentEmotion = _emotionModel.predict(
-        _state.energy, 
-        _state.stimulation, 
-        _state.curiosity, 
-        biases.sociabilityBias
-    );
+void PersonalityService::adjustSocialMood(float delta) {
+    _state.socialMood = clamp(_state.socialMood + delta, -1.0f, 1.0f);
+    determineEmotion();
 }
 
 const InternalState& PersonalityService::getState() const {
     return _state;
+}
+
+void PersonalityService::determineEmotion() {
+    // Lógica Fuzzy simples para determinar emoção baseada em variáveis
+    if (_state.energy < 0.2f) {
+        _state.currentEmotion = Emotion::SLEEPY;
+    } else if (_state.curiosity > 0.7f && _state.socialMood > 0.0f) {
+        _state.currentEmotion = Emotion::EXCITED;
+    } else if (_state.socialMood < -0.5f) {
+        _state.currentEmotion = Emotion::ANGRY;
+    } else {
+        _state.currentEmotion = Emotion::NEUTRAL;
+    }
 }

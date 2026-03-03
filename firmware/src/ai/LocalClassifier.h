@@ -1,12 +1,13 @@
 #pragma once
-#include <stdint.h>
-#include "MemoryManager.h" // Para o EventType
+
+enum class EventType {
+    NONE,
+    LOUD_NOISE,
+    INTERACTION_POSITIVE,
+    SILENCE
+};
 
 class LocalClassifier {
 public:
-    // Tenta classificar o nível de áudio num evento reconhecível
-    bool classifyAudio(float volumeLevel, EventType& outEvent);
-    
-    // Tenta classificar o padrão de luz captado pela câmara
-    bool classifyVision(uint8_t brightnessDelta, EventType& outEvent);
+    bool classifyAudio(float volume, EventType& detectedType);
 };

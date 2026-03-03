@@ -1,48 +1,37 @@
 #pragma once
 
-// --- Sistema Nervoso ---
-#include "core/EventBus.h"
-
-// --- O Cérebro ---
-#include "behavior/CognitiveLoop.h"
-
-// --- Músculos e Sentidos ---
-#include "services/face/FaceService.h"
-// #include "services/MotionService.h"
-// #include "services/TouchService.h"
-// #include "services/AudioService.h"
-// #include "services/VisionService.h"
-
-// --- Sobrevivência e Feedback ---
-// #include "services/PowerService.h"
-// #include "services/StorageService.h"
-#include "services/LightsService.h" // Usamos LedService para os teus LEDs
+#include <stdint.h>
+#include "../drivers/DisplayDriver.h" // <-- O nosso novo driver de hardware
+#include "../services/face/FaceService.h"
+#include "../services/PersonalityService.h"
+#include "../services/AudioService.h"
+#include "../behavior/CognitiveLoop.h"
+#include "../behavior/BehaviorCoordinator.h"
 
 class App {
 public:
-    // Ponto de entrada chamado no main.cpp
-    void init();
+    App();
+    void init(); 
+    void loop();
 
 private:
-    // --- Instâncias dos Órgãos (Todos ativos agora!) ---
-    FaceService    _face;
-    MotionService  _motion;
-    // TouchService   _touch;
-    // AudioService   _audio;
-    // VisionService  _vision;
-    // PowerService   _power;
-    // StorageService _storage;
-    LightsService     _leds;    // O serviço para os teus LEDs do pino 2
-    
-    // O Cérebro
-    CognitiveLoop  _brain;
-
-    // --- Gestão de Multicore (FreeRTOS) ---
-    // Wrappers estáticos necessários para o SO
-    static void faceTaskWrapper(void* param);
-    static void brainTaskWrapper(void* param);
-    
-    // Loops internos de execução
     void runFaceLoop();
     void runBrainLoop();
+    void processSerialCommands();
+
+    // Hardware Drivers
+    DisplayDriver _displayDriver; 
+
+    // Serviços
+    FaceService _face;
+    AudioService _audio;
+    PersonalityService _personality;
+    
+    // Comportamento (Cérebro)
+    BehaviorCoordinator _coordinator;
+    CognitiveLoop _brain;
+    
+    uint32_t _lastBrainUpdate = 0;
+    uint32_t _lastFaceUpdate = 0;
 };
+

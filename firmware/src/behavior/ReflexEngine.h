@@ -1,17 +1,12 @@
 #pragma once
-#include "services/face/FaceService.h"
-#include "services/MotionService.h"
 
-// O ReflexEngine é injetado com os Services diretamente para ter "Bypass" cognitivo
+#include <stdint.h>
+
 class ReflexEngine {
 public:
-    void init(FaceService* face, MotionService* motion);
-    
-    // Chamado por interrupções ou tasks muito rápidas (ex: som alto súbito)
-    void onLoudNoise(); 
-    void onSuddenDrop(); // IMU detetou queda livre
+    // Retorna true se um reflexo foi disparado (bloqueando o resto do cérebro)
+    bool checkReflexes(float audioVolume, bool isTouched);
 
-private:
-    FaceService* _face;
-    MotionService* _motion;
+    // Retorna a emoção forçada pelo reflexo (ex: SCARED no susto)
+    // Emotion getReflexEmotion() const; 
 };

@@ -12,7 +12,6 @@ void setup() {
 }
 
 void loop() {
-    // Apaga a task nativa do Arduino para poupar RAM.
-    // O NodeBot agora vive nas Tasks do FreeRTOS criadas pela App!
-    vTaskDelete(NULL); 
+    nodeBot.loop();
+    // vTaskDelete(NULL); // REMOVIDO: Isso matava o loop principal!
 }

@@ -1,31 +1,47 @@
 #pragma once
-#include "Animation.h"
+#include <Arduino.h>
 #include "../model/EyeModel.h"
-#include <math.h>
 
-class BlinkAnimation : public Animation {
+class BlinkAnimation {
 private:
-    EyeModel* _model = nullptr;
-    uint32_t _elapsed = 0;
-    const uint32_t _duration = 220; // ms
+    unsigned long lastBlinkTime = 0;
+    unsigned long stateTimer = 0;
 
 public:
-    void attachModel(EyeModel* m) { _model = m; }
+    void update(EyeModel& model, unsigned long currentTime) {
+        if (model.currentExpression == Expression::SURPRISED) {
+            model.blinkFactor = 1.0;
+            return; // Surpreso não pisca
+        }
 
-    void start() override { _elapsed = 0; }
-
-    void update(uint32_t deltaMs) override {
-        if (!_model) return;
-        _elapsed += deltaMs;
-        
-        float t = (float)_elapsed / _duration;
-        if (t > 1.0f) t = 1.0f;
-
-        // Easing curve (Parábola)
-        float curve = (t < 0.5f) ? (2.0f * t * t) : (1.0f - pow(-2.0f * t + 2.0f, 2.0f) / 2.0f);
-        _model->setLid(1.0f - curve);
+        switch (model.blinkState) {
+            case BlinkState::EYE_OPEN:
+                if (currentTime - lastBlinkTime > model.blinkInterval) {
+                    model.blinkState = BlinkState::EYE_CLOSING;
+                    stateTimer = currentTime;
+                }
+                break;
+            case BlinkState::EYE_CLOSING:
+                model.blinkFactor = 0.1;
+                if (currentTime - stateTimer > 30) { 
+                    model.blinkState = BlinkState::EYE_CLOSED;
+                    stateTimer = currentTime;
+                }
+                break;
+            case BlinkState::EYE_CLOSED:
+                if (currentTime - stateTimer > 80) {
+                    model.blinkState = BlinkState::EYE_OPENING;
+                    stateTimer = currentTime;
+                }
+                break;
+            case BlinkState::EYE_OPENING:
+                model.blinkFactor = 1.0;
+                if (currentTime - stateTimer > 30) { 
+                    model.blinkState = BlinkState::EYE_OPEN;
+                    lastBlinkTime = currentTime;
+                    model.blinkInterval = random(2000, 6000); 
+                }
+                break;
+        }
     }
-
-    bool finished() override { return _elapsed >= _duration; }
-    int priority() const override { return 2; }
 };
