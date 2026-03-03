@@ -1,30 +1,18 @@
 #include "SaccadeAnimation.h"
+#include <Arduino.h>
 
-void SaccadeAnimation::update(EyeModel& model, unsigned long currentTime) {
-    // 1. Inteligência de Movimento: Sorteia um novo ponto de interesse
-    if (currentTime - lastMoveTime > nextInterval) {
-        targetX = random(-28, 29); // Movimento horizontal
-        targetY = random(-18, 19); // Movimento vertical
-        
-        lastMoveTime = currentTime;
-        // Tempo que o robô fica "focado" antes de olhar para outro lado
-        nextInterval = random(1200, 4500); 
+void SaccadeAnimation::update(EyeModel& model, float dt) {
+    timer += dt;
+
+    if (timer >= nextInterval) {
+        // Gera novos alvos aleatórios dentro de limites seguros
+        targetX = random(-15, 16);
+        targetY = random(-10, 8);
+        nextInterval = random(500, 3000) / 1000.0f;
+        timer = 0;
     }
 
-    // 2. Matemática do Olhar "Redondo" (Easing)
-    // Calcula a distância que falta percorrer
-    float dx = targetX - model.currentSaccadeX;
-    float dy = targetY - model.currentSaccadeY;
-
-    // Move apenas uma fração da distância a cada frame (gera desaceleração suave)
-    model.currentSaccadeX += dx * easing;
-    model.currentSaccadeY += dy * easing;
-}
-
-void SaccadeAnimation::lookAt(float x, float y) {
-    targetX = x;
-    targetY = y;
-    // Reseta o timer para ele manter o foco no ponto do susto por um tempo
-    lastMoveTime = millis();
-    nextInterval = 2000; 
+    // Interpolação suave (Easing) para movimento natural
+    model.currentSaccadeX += (targetX - model.currentSaccadeX) * (speed * dt);
+    model.currentSaccadeY += (targetY - model.currentSaccadeY) * (speed * dt);
 }

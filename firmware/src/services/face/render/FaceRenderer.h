@@ -1,26 +1,24 @@
 #pragma once
 #include <LovyanGFX.hpp>
 #include "../model/EyeModel.h"
+#include "../animation/EmotionTransition.h"
+
+// Estrutura para o Dirty Rectangle
+struct BoundingBox {
+    int x, y, w, h;
+};
 
 class FaceRenderer {
-private:
-    lgfx::LGFX_Sprite* canvas;
-
-    // Protótipos das 12 funções geométricas de máscara
-    void drawNeutralGeometry(int lx, int rx, int yL, int yR, int w, int hL, int hR, int r);
-    void drawHappyGeometry(int lx, int rx, int yL, int yR, int w, int hL, int hR, int r);
-    void drawAngryGeometry(int lx, int rx, int yL, int yR, int w, int hL, int hR, int r);
-    void drawSadGeometry(int lx, int rx, int yL, int yR, int w, int hL, int hR, int r);
-    void drawSurprisedGeometry(int lx, int rx, int yL, int yR, int w, int hL, int hR, int r);
-    void drawFocusedGeometry(int lx, int rx, int yL, int yR, int w, int hL, int hR, int r);
-    void drawSkepticGeometry(int lx, int rx, int yL, int yR, int w, int hL, int hR, int r);
-    void drawUnimpressedGeometry(int lx, int rx, int yL, int yR, int w, int hL, int hR, int r);
-    void drawWorriedGeometry(int lx, int rx, int yL, int yR, int w, int hL, int hR, int r);
-    void drawFuriousGeometry(int lx, int rx, int yL, int yR, int w, int hL, int hR, int r);
-    void drawSquintGeometry(int lx, int rx, int yL, int yR, int w, int hL, int hR, int r);
-    void drawSuspiciousGeometry(int lx, int rx, int yL, int yR, int w, int hL, int hR, int r);
-
 public:
     void init(lgfx::LGFX_Sprite* spriteBuffer);
-    void render(const EyeModel& model);
+    
+    // Agora o render retorna a área exata que precisa ser atualizada no display
+    BoundingBox render(const EyeModel& model, float dt, const EmotionTransition& et);
+
+private:
+    lgfx::LGFX_Sprite* canvas;
+    lgfx::LGFX_Sprite baseSprite, happyMask, angryMask, sadMask, focusedMask;
+    
+    // Armazena a área do frame anterior para podermos apagar o rastro
+    int lastMinX = 0, lastMinY = 0, lastMaxX = 240, lastMaxY = 240; 
 };

@@ -2,178 +2,69 @@
 
 void FaceRenderer::init(lgfx::LGFX_Sprite* spriteBuffer) {
     canvas = spriteBuffer;
+    
+    // OTIMIZAÇÃO: Reduzindo os sprites pre-renderizados para 8-bit
+    baseSprite.createSprite(80, 80); 
+    baseSprite.fillRoundRect(0, 0, 80, 80, 16, TFT_WHITE);
+    
+    happyMask.createSprite(100, 100); 
+    happyMask.fillCircle(50, 115, 80, TFT_BLACK);
+    
+    angryMask.createSprite(80, 40); 
+    angryMask.fillTriangle(0, 0, 80, 0, 80, 40, TFT_BLACK);
+    
+    sadMask.createSprite(80, 40); 
+    sadMask.fillTriangle(0, 0, 80, 0, 0, 40, TFT_BLACK);
+    
+    focusedMask.createSprite(80, 40); 
+    focusedMask.fillRect(0, 0, 80, 40, TFT_BLACK);
 }
 
-void FaceRenderer::render(const EyeModel& model) {
-    // Serial.println(model.blinkFactor); // REMOVIDO: Evita travar o loop se o buffer serial encher
-    
-    // canvas->fillScreen(TFT_BLACK); // REMOVIDO: Usaremos Dirty Rectangles para limpar apenas o necessário
+BoundingBox FaceRenderer::render(const EyeModel& model, float dt, const EmotionTransition& et) {
+    int lx = model.leftEyeX + (int)model.currentSaccadeX;
+    int rx = model.rightEyeX + (int)model.currentSaccadeX;
+    int yBase = model.defaultEyeY + (int)model.currentSaccadeY;
+    float sF = 1.0f + (et.surprisedW * 0.4f);
 
-    // 1. Alturas independentes para humanização (Assimetria)
-    int hL = model.baseHeight * model.blinkFactor * model.leftScaleY;
-    int hR = model.baseHeight * model.blinkFactor * model.rightScaleY;
-    
-    // 2. Parâmetros de geometria
-    int w = model.baseWidth;
-    int r = model.baseRadius;
-    if (model.blinkFactor < 0.3) r = 4; // Borda dura ao fechar
+    // 1. Calcula a área ocupada neste frame (com margem de segurança)
+    int currentMinX = max(0, lx - 20);
+    int currentMaxX = min(240, rx + 100);
+    int currentMinY = max(0, yBase - 100);
+    int currentMaxY = min(240, yBase + (int)(80 * sF) + 10);
 
-    // 3. Posições Y independentes (Mantém o Saccade)
-    int yL = model.defaultEyeY + (model.baseHeight - hL) + model.currentSaccadeY;
-    int yR = model.defaultEyeY + (model.baseHeight - hR) + model.currentSaccadeY;
+    // 2. A "Área Suja" real é a UNIÃO entre onde o olho estava e onde ele está agora
+    int dirtyX = min(lastMinX, currentMinX);
+    int dirtyY = min(lastMinY, currentMinY);
+    int dirtyW = max(lastMaxX, currentMaxX) - dirtyX;
+    int dirtyH = max(lastMaxY, currentMaxY) - dirtyY;
 
-    // 4. Posições X com Saccade
-    int lx = model.leftEyeX + model.currentSaccadeX;
-    int rx = model.rightEyeX + model.currentSaccadeX;
+    // 3. Limpa APENAS o Dirty Rectangle (Adeus fillScreen pesado!)
+    canvas->fillRect(dirtyX, dirtyY, dirtyW, dirtyH, TFT_BLACK);
 
-    // --- OTIMIZAÇÃO: DIRTY RECTANGLES ---
-    // Limpa apenas a área onde os olhos estavam no quadro anterior
-    static int last_lx, last_yL, last_w, last_hL;
-    static int last_rx, last_yR, last_hR;
-    static bool initialized = false;
-    const int PAD = 10; // Margem de segurança para cobrir expressões maiores (ex: Skeptic)
+    // Atualiza o lastFrame para a próxima iteração
+    lastMinX = currentMinX; lastMaxX = currentMaxX;
+    lastMinY = currentMinY; lastMaxY = currentMaxY;
 
-    if (initialized) {
-        // Limpa olho esquerdo anterior
-        canvas->fillRect(last_lx - PAD, last_yL - PAD, last_w + 2*PAD, last_hL + 2*PAD, TFT_BLACK);
-        // Limpa olho direito anterior
-        canvas->fillRect(last_rx - PAD, last_yR - PAD, last_w + 2*PAD, last_hR + 2*PAD, TFT_BLACK);
-        // Limpa a área do contador de FPS
-        canvas->fillRect(5, 5, 120, 20, TFT_BLACK);
-    } else {
-        canvas->fillScreen(TFT_BLACK); // Limpa tudo apenas no primeiro quadro
-        initialized = true;
-    }
-    // Salva coordenadas atuais para serem limpas no próximo quadro
-    last_lx = lx; last_yL = yL; last_w = w; last_hL = hL;
-    last_rx = rx; last_yR = yR; last_hR = hR;
+    // --- DESENHO ---
+    baseSprite.setPivot(40, 80);
+    baseSprite.pushRotateZoom(canvas, (float)(lx+40), (float)yBase, 0.0f, sF, (float)(model.leftScaleY * model.blinkFactor * sF));
+    baseSprite.pushRotateZoom(canvas, (float)(rx+40), (float)yBase, 0.0f, sF, (float)(model.rightScaleY * model.blinkFactor * sF));
 
-    // 5. Lógica de Desenho Principal
-    if (model.blinkFactor < 0.2) {
-        canvas->fillRoundRect(lx, yL, w, hL, r, TFT_WHITE);
-        canvas->fillRoundRect(rx, yR, w, hR, r, TFT_WHITE);
-    } else {
-        switch (model.currentExpression) {
-            case Expression::NEUTRAL:    drawNeutralGeometry(lx, rx, yL, yR, w, hL, hR, r); break;
-            case Expression::HAPPY:      drawHappyGeometry(lx, rx, yL, yR, w, hL, hR, r); break;
-            case Expression::ANGRY:      drawAngryGeometry(lx, rx, yL, yR, w, hL, hR, r); break;
-            case Expression::SAD:        drawSadGeometry(lx, rx, yL, yR, w, hL, hR, r); break;
-            case Expression::SURPRISED:  drawSurprisedGeometry(lx, rx, yL, yR, w, hL, hR, r); break;
-            case Expression::FOCUSED:    drawFocusedGeometry(lx, rx, yL, yR, w, hL, hR, r); break;
-            case Expression::SKEPTIC:    drawSkepticGeometry(lx, rx, yL, yR, w, hL, hR, r); break;
-            case Expression::UNIMPRESSED:drawUnimpressedGeometry(lx, rx, yL, yR, w, hL, hR, r); break;
-            case Expression::WORRIED:    drawWorriedGeometry(lx, rx, yL, yR, w, hL, hR, r); break;
-            case Expression::FURIOUS:    drawFuriousGeometry(lx, rx, yL, yR, w, hL, hR, r); break;
-            case Expression::SQUINT:     drawSquintGeometry(lx, rx, yL, yR, w, hL, hR, r); break;
-            case Expression::SUSPICIOUS: drawSuspiciousGeometry(lx, rx, yL, yR, w, hL, hR, r); break;
+    auto drawMask = [&](lgfx::LGFX_Sprite& m, int x, int y, float w, bool mirror = false) {
+        if (w > 0.01f) {
+            if (!mirror) m.pushSprite(canvas, x, y, TFT_BLACK);
+            else { m.setPivot(40, 20); m.pushRotateZoom(canvas, (float)(x+40), (float)(y+20), 0.0f, -1.0f, 1.0f, TFT_BLACK); }
         }
+    };
+
+    drawMask(happyMask, lx-10, yBase+(int)(15-et.happyW*45), et.happyW);
+    drawMask(happyMask, rx-10, yBase+(int)(15-et.happyW*45), et.happyW);
+
+    if (et.angryW > 0.01f || et.furiousW > 0.01f) {
+        int aY = yBase - 85 + (int)(max(et.angryW, et.furiousW)*35);
+        drawMask(angryMask, lx, aY, 1.0f); drawMask(angryMask, rx, aY, 1.0f, true);
     }
 
-    // --- MEDIDOR DE FPS ---
-    static uint32_t lastFpsTime = 0;
-    static int frameCount = 0;
-    static int fps = 0;
-
-    frameCount++;
-    if (millis() - lastFpsTime >= 1000) {
-        fps = frameCount;
-        frameCount = 0;
-        lastFpsTime = millis();
-    }
-
-    canvas->setCursor(5, 5);      // Canto superior esquerdo
-    canvas->setTextColor(0x07E0); // Cor Verde (TFT_GREEN)
-    canvas->setTextSize(2);       // Tamanho legível
-    canvas->print("FPS: ");
-    canvas->print(fps);
-}
-
-// --- IMPLEMENTAÇÃO DAS GEOMETRIAS ---
-
-void FaceRenderer::drawNeutralGeometry(int lx, int rx, int yL, int yR, int w, int hL, int hR, int r) {
-    canvas->fillRoundRect(lx, yL, w, hL, r, TFT_WHITE);
-    canvas->fillRoundRect(rx, yR, w, hR, r, TFT_WHITE);
-}
-
-void FaceRenderer::drawHappyGeometry(int lx, int rx, int yL, int yR, int w, int hL, int hR, int r) {
-    canvas->fillRoundRect(lx, yL, w, hL, r, TFT_WHITE);
-    canvas->fillRoundRect(rx, yR, w, hR, r, TFT_WHITE);
-    canvas->fillCircle(lx + w/2, yL + hL * 1.2, w * 0.8, TFT_BLACK); 
-    canvas->fillCircle(rx + w/2, yR + hR * 1.2, w * 0.8, TFT_BLACK); 
-}
-
-void FaceRenderer::drawAngryGeometry(int lx, int rx, int yL, int yR, int w, int hL, int hR, int r) {
-    canvas->fillRoundRect(lx, yL, w, hL, r, TFT_WHITE);
-    canvas->fillRoundRect(rx, yR, w, hR, r, TFT_WHITE);
-    canvas->fillTriangle(lx + w/2, yL - 4, lx + w + 4, yL - 4, lx + w + 4, yL + hL/2, TFT_BLACK);
-    canvas->fillTriangle(rx + w/2, yR - 4, rx - 4, yR - 4, rx - 4, yR + hR/2, TFT_BLACK);
-}
-
-void FaceRenderer::drawSadGeometry(int lx, int rx, int yL, int yR, int w, int hL, int hR, int r) {
-    canvas->fillRoundRect(lx, yL, w, hL, r, TFT_WHITE);
-    canvas->fillRoundRect(rx, yR, w, hR, r, TFT_WHITE);
-    canvas->fillTriangle(lx + w/2, yL - 4, lx - 4, yL - 4, lx - 4, yL + hL/2, TFT_BLACK);
-    canvas->fillTriangle(rx + w/2, yR - 4, rx + w + 4, yR - 4, rx + w + 4, yR + hR/2, TFT_BLACK);
-}
-
-void FaceRenderer::drawSurprisedGeometry(int lx, int rx, int yL, int yR, int w, int hL, int hR, int r) {
-    canvas->fillRoundRect(lx, yL, w, hL, r, TFT_WHITE);
-    canvas->fillRoundRect(rx, yR, w, hR, r, TFT_WHITE);
-}
-
-void FaceRenderer::drawFocusedGeometry(int lx, int rx, int yL, int yR, int w, int hL, int hR, int r) {
-    canvas->fillRoundRect(lx, yL, w, hL, r, TFT_WHITE);
-    canvas->fillRoundRect(rx, yR, w, hR, r, TFT_WHITE);
-    canvas->fillRect(lx - 4, yL - 4, w + 8, hL/3, TFT_BLACK); 
-    canvas->fillRect(rx - 4, yR - 4, w + 8, hR/3, TFT_BLACK);
-    canvas->fillRect(lx - 4, yL + hL - hL/3 + 4, w + 8, hL/3, TFT_BLACK); 
-    canvas->fillRect(rx - 4, yR + hR - hR/3 + 4, w + 8, hR/3, TFT_BLACK);
-}
-
-void FaceRenderer::drawSkepticGeometry(int lx, int rx, int yL, int yR, int w, int hL, int hR, int r) {
-    canvas->fillRoundRect(lx, yL, w, hL, r, TFT_WHITE);
-    canvas->fillRect(lx - 4, yL - 4, w + 8, hL/3, TFT_BLACK); 
-    canvas->fillRect(lx - 4, yL + hL - hL/3 + 4, w + 8, hL/3, TFT_BLACK); 
-    canvas->fillRoundRect(rx, yR - 5, w, hR + 10, r, TFT_WHITE);
-    canvas->fillTriangle(rx - 4, yR - 15, rx + w + 4, yR + (hR / 2), rx + w + 4, yR - 20, TFT_BLACK);
-}
-
-void FaceRenderer::drawUnimpressedGeometry(int lx, int rx, int yL, int yR, int w, int hL, int hR, int r) {
-    canvas->fillRoundRect(lx, yL, w, hL, r, TFT_WHITE);
-    canvas->fillRoundRect(rx, yR, w, hR, r, TFT_WHITE);
-    canvas->fillRect(lx - 4, yL - 4, w + 8, hL * 0.65, TFT_BLACK);
-    canvas->fillRect(rx - 4, yR - 4, w + 8, hR * 0.65, TFT_BLACK);
-}
-
-void FaceRenderer::drawWorriedGeometry(int lx, int rx, int yL, int yR, int w, int hL, int hR, int r) {
-    canvas->fillRoundRect(lx, yL, w, hL, r, TFT_WHITE);
-    canvas->fillRoundRect(rx, yR, w, hR, r, TFT_WHITE);
-    canvas->fillRect(lx - 4, yL + hL - (hL/4), w + 8, (hL/4) + 4, TFT_BLACK);
-    canvas->fillRect(rx - 4, yR + hR - (hR/4), w + 8, (hR/4) + 4, TFT_BLACK);
-    canvas->fillTriangle(lx + w/2, yL - 4, lx - 4, yL - 4, lx - 4, yL + hL/3, TFT_BLACK); 
-    canvas->fillTriangle(rx + w/2, yR - 4, rx + w + 4, yR - 4, rx + w + 4, yR + hR/3, TFT_BLACK); 
-}
-
-void FaceRenderer::drawFuriousGeometry(int lx, int rx, int yL, int yR, int w, int hL, int hR, int r) {
-    canvas->fillRoundRect(lx, yL + hL/4, w, hL - hL/4, r, TFT_WHITE);
-    canvas->fillRoundRect(rx, yR + hR/4, w, hR - hR/4, r, TFT_WHITE);
-    canvas->fillTriangle(lx + w + 4, yL - 4, lx - w/2, yL - 4, lx + w + 4, yL + hL, TFT_BLACK);
-    canvas->fillTriangle(rx - 4, yR - 4, rx + w + w/2, yR - 4, rx - 4, yR + hR, TFT_BLACK);
-}
-
-void FaceRenderer::drawSquintGeometry(int lx, int rx, int yL, int yR, int w, int hL, int hR, int r) {
-    canvas->fillRoundRect(lx, yL, w, hL, r, TFT_WHITE);
-    canvas->fillRoundRect(rx, yR, w, hR, r, TFT_WHITE);
-    canvas->fillRect(lx - 4, yL - 4, w + 8, hL * 0.4, TFT_BLACK); 
-    canvas->fillRect(rx - 4, yR - 4, w + 8, hR * 0.4, TFT_BLACK); 
-    canvas->fillRect(lx - 4, yL + hL - (hL * 0.4) + 4, w + 8, hL * 0.4, TFT_BLACK); 
-    canvas->fillRect(rx - 4, yR + hR - (hR * 0.4) + 4, w + 8, hR * 0.4, TFT_BLACK); 
-}
-
-void FaceRenderer::drawSuspiciousGeometry(int lx, int rx, int yL, int yR, int w, int hL, int hR, int r) {
-    canvas->fillRoundRect(lx, yL, w, hL, r, TFT_WHITE);
-    canvas->fillRect(lx - 4, yL - 4, w + 8, hL * 0.45, TFT_BLACK); 
-    canvas->fillRect(lx - 4, yL + hL - (hL * 0.45) + 4, w + 8, hL * 0.45, TFT_BLACK); 
-    canvas->fillRoundRect(rx, yR, w, hR, r, TFT_WHITE);
-    canvas->fillRect(rx - 4, yR - 4, w + 8, hR * 0.3, TFT_BLACK); 
+    // Retorna as coordenadas exatas da área que mudou
+    return {dirtyX, dirtyY, dirtyW, dirtyH};
 }
